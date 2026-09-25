@@ -18,6 +18,7 @@ dependencies = [
     "scikit-learn>=1.4",
     "xgboost>=2.0",
     "pyyaml>=6.0",
+    "fsspec>=2024.3",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +38,8 @@ addopts = "-q"
 line-length = 100
 target-version = "py312"
 src = ["src", "tests", "scripts", "jobs"]
+# The authors' own reader is kept verbatim as a reference, not as our code.
+exclude = ["docs/supplementary"]
 
 [tool.ruff.lint]
 # E/F: pyflakes and pycodestyle; I: import order; D: docstrings, because
