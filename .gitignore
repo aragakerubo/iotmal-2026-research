@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Notebooks and editors
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Local data and job output; the committed artifacts in data/ are listed explicitly
+data/raw/
+data/scratch/
+runs/
+checkpoints/
+*.parquet
+*.csv.gz
+
+# Secrets
+.env
