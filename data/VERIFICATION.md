@@ -19,154 +19,178 @@ Scanned `s3://iotmal-2026-research/raw/Yokohama` on 2026-09-26.
 
 ### iotmal-2026-research/raw/Yokohama/arm/arm/Parquet Format/pcap.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 507772 |
-| Unknown | 113620 |
-| Benign | 51791 |
-| DarkNexus | 44156 |
-| Gafgyt | 10450 |
-| Generic | 9050 |
-| Tsunami | 786 |
-| Agent | 26 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 507772 | 2795 |
+| Unknown | 113620 | 695 |
+| Benign | 51791 | 1980 |
+| DarkNexus | 44156 | 91 |
+| Gafgyt | 10450 | 5 |
+| Generic | 9050 | 29 |
+| Tsunami | 786 | 3 |
+| Agent | 26 | 1 |
 
 Columns with nulls: Std, Variance
+
+No non-integer values in any `double` count column (row groups 0).
 
 ### iotmal-2026-research/raw/Yokohama/arm/arm/Parquet Format/sar.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 320607 |
-| Benign | 230367 |
-| Unknown | 79613 |
-| DarkNexus | 10399 |
-| Generic | 3458 |
-| Gafgyt | 595 |
-| Tsunami | 359 |
-| Agent | 120 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 320607 | 2721 |
+| Benign | 230367 | 1945 |
+| Unknown | 79613 | 675 |
+| DarkNexus | 10399 | 88 |
+| Generic | 3458 | 29 |
+| Gafgyt | 595 | 5 |
+| Tsunami | 359 | 3 |
+| Agent | 120 | 1 |
+
+No non-integer values in any `double` count column (row groups 0).
 
 ### iotmal-2026-research/raw/Yokohama/arm/arm/Parquet Format/strace.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 20323388 |
-| Benign | 878657 |
-| DarkNexus | 505006 |
-| Generic | 149191 |
-| Gafgyt | 84316 |
-| Tsunami | 48718 |
-| Agent | 20 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 20323388 | 2795 |
+| Benign | 878657 | 1980 |
+| DarkNexus | 505006 | 91 |
+| Generic | 149191 | 29 |
+| Gafgyt | 84316 | 5 |
+| Tsunami | 48718 | 3 |
+| Agent | 20 | 1 |
+
+No non-integer values in any `double` count column (row groups 0, 10, 20).
 
 ### iotmal-2026-research/raw/Yokohama/mips/mips/Parquet Format/pcap.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 602510 |
-| Unknown | 149133 |
-| Benign | 83968 |
-| Gafgyt | 19580 |
-| DarkNexus | 13578 |
-| Generic | 1248 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 602510 | 1616 |
+| Unknown | 149133 | 401 |
+| Benign | 83968 | 2617 |
+| Gafgyt | 19580 | 29 |
+| DarkNexus | 13578 | 44 |
+| Generic | 1248 | 2 |
 
 Columns with nulls: Std, Variance
+
+No non-integer values in any `double` count column (row groups 0).
 
 ### iotmal-2026-research/raw/Yokohama/mips/mips/Parquet Format/sar.parquet
 
-| Class | Rows |
-| --- | --- |
-| Benign | 256545 |
-| Mirai | 134186 |
-| Unknown | 34210 |
-| DarkNexus | 3590 |
-| Gafgyt | 1833 |
-| Generic | 176 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Benign | 256545 | 2433 |
+| Mirai | 134186 | 1544 |
+| Unknown | 34210 | 393 |
+| DarkNexus | 3590 | 42 |
+| Gafgyt | 1833 | 24 |
+| Generic | 176 | 2 |
 
 Columns with nulls: network.net-dev[3].iface, network.net-dev[3].rxpck, network.net-dev[3].txpck, network.net-dev[3].rxkB, network.net-dev[3].txkB, network.net-dev[3].rxcmp, network.net-dev[3].txcmp, network.net-dev[3].rxmcst, network.net-dev[3].ifutil-percent, network.net-edev[3].iface, network.net-edev[3].rxerr, network.net-edev[3].txerr, network.net-edev[3].coll, network.net-edev[3].rxdrop, network.net-edev[3].txdrop, network.net-edev[3].txcarr, network.net-edev[3].rxfram, network.net-edev[3].rxfifo, network.net-edev[3].txfifo
 
+No non-integer values in any `double` count column (row groups 0).
+
 ### iotmal-2026-research/raw/Yokohama/mips/mips/Parquet Format/strace.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 22949149 |
-| Benign | 6592302 |
-| DarkNexus | 286968 |
-| Gafgyt | 160459 |
-| Generic | 4993 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 22949149 | 1616 |
+| Benign | 6592302 | 2617 |
+| DarkNexus | 286968 | 44 |
+| Gafgyt | 160459 | 29 |
+| Generic | 4993 | 2 |
+
+No non-integer values in any `double` count column (row groups 0, 14, 28).
 
 ### iotmal-2026-research/raw/Yokohama/mipsel/mipsel/Parquet Format/pcap.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 568971 |
-| Unknown | 425326 |
-| Benign | 81254 |
-| Gafgyt | 15903 |
-| DarkNexus | 10421 |
-| Generic | 1599 |
-| Agent | 335 |
-| Rudedevil | 207 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 568971 | 1534 |
+| Unknown | 425326 | 1376 |
+| Benign | 81254 | 2511 |
+| Gafgyt | 15903 | 23 |
+| DarkNexus | 10421 | 40 |
+| Generic | 1599 | 4 |
+| Agent | 335 | 1 |
+| Rudedevil | 207 | 1 |
 
 Columns with nulls: Std, Variance
+
+No non-integer values in any `double` count column (row groups 0, 1).
 
 ### iotmal-2026-research/raw/Yokohama/mipsel/mipsel/Parquet Format/sar.parquet
 
-| Class | Rows |
-| --- | --- |
-| Benign | 251242 |
-| Mirai | 130185 |
-| Unknown | 129754 |
-| DarkNexus | 3376 |
-| Gafgyt | 1599 |
-| Generic | 342 |
-| Agent | 96 |
-| Rudedevil | 85 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Benign | 251242 | 2375 |
+| Mirai | 130185 | 1483 |
+| Unknown | 129754 | 1322 |
+| DarkNexus | 3376 | 39 |
+| Gafgyt | 1599 | 21 |
+| Generic | 342 | 4 |
+| Agent | 96 | 1 |
+| Rudedevil | 85 | 1 |
 
 Columns with nulls: network.net-dev[3].iface, network.net-dev[3].rxpck, network.net-dev[3].txpck, network.net-dev[3].rxkB, network.net-dev[3].txkB, network.net-dev[3].rxcmp, network.net-dev[3].txcmp, network.net-dev[3].rxmcst, network.net-dev[3].ifutil-percent, network.net-edev[3].iface, network.net-edev[3].rxerr, network.net-edev[3].txerr, network.net-edev[3].coll, network.net-edev[3].rxdrop, network.net-edev[3].txdrop, network.net-edev[3].txcarr, network.net-edev[3].rxfram, network.net-edev[3].rxfifo, network.net-edev[3].txfifo, filesystems[0].filesystem
 
+No non-integer values in any `double` count column (row groups 0).
+
 ### iotmal-2026-research/raw/Yokohama/mipsel/mipsel/Parquet Format/strace.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 21828458 |
-| Benign | 5422828 |
-| DarkNexus | 230391 |
-| Gafgyt | 122211 |
-| Generic | 11904 |
-| Agent | 6297 |
-| Rudedevil | 279 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 21828458 | 1534 |
+| Benign | 5422828 | 2511 |
+| DarkNexus | 230391 | 40 |
+| Gafgyt | 122211 | 23 |
+| Generic | 11904 | 4 |
+| Agent | 6297 | 1 |
+| Rudedevil | 279 | 1 |
+
+No non-integer values in any `double` count column (row groups 0, 13, 26).
 
 ### iotmal-2026-research/raw/Yokohama/x86/x86/Parquet Format/pcap.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 319808 |
-| Benign | 82622 |
-| Unknown | 31531 |
-| DarkNexus | 9938 |
-| Gafgyt | 7666 |
-| Generic | 4076 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 319808 | 1657 |
+| Benign | 82622 | 2570 |
+| Unknown | 31531 | 174 |
+| DarkNexus | 9938 | 50 |
+| Gafgyt | 7666 | 12 |
+| Generic | 4076 | 12 |
 
 Columns with nulls: Std, Variance
 
+No non-integer values in any `double` count column (row groups 0).
+
 ### iotmal-2026-research/raw/Yokohama/x86/x86/Parquet Format/sar.parquet
 
-| Class | Rows |
-| --- | --- |
-| Benign | 307852 |
-| Mirai | 192440 |
-| Unknown | 20570 |
-| DarkNexus | 6000 |
-| Generic | 1440 |
-| Gafgyt | 910 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Benign | 307852 | 2570 |
+| Mirai | 192440 | 1620 |
+| Unknown | 20570 | 173 |
+| DarkNexus | 6000 | 50 |
+| Generic | 1440 | 12 |
+| Gafgyt | 910 | 10 |
 
 Columns with nulls: interrupts[28].intr, network.net-dev[2].iface, network.net-dev[2].rxpck, network.net-dev[2].txpck, network.net-dev[2].rxkB, network.net-dev[2].txkB, network.net-dev[2].rxcmp, network.net-dev[2].txcmp, network.net-dev[2].rxmcst, network.net-dev[2].ifutil-percent, network.net-edev[2].iface, network.net-edev[2].rxerr, network.net-edev[2].txerr, network.net-edev[2].coll, network.net-edev[2].rxdrop, network.net-edev[2].txdrop, network.net-edev[2].txcarr, network.net-edev[2].rxfram, network.net-edev[2].rxfifo, network.net-edev[2].txfifo
 
+No non-integer values in any `double` count column (row groups 0).
+
 ### iotmal-2026-research/raw/Yokohama/x86/x86/Parquet Format/strace.parquet
 
-| Class | Rows |
-| --- | --- |
-| Mirai | 19745632 |
-| Benign | 5832881 |
-| DarkNexus | 227611 |
-| Gafgyt | 32777 |
-| Generic | 15752 |
+| Class | Rows | Binaries |
+| --- | --- | --- |
+| Mirai | 19745632 | 1657 |
+| Benign | 5832881 | 2570 |
+| DarkNexus | 227611 | 50 |
+| Gafgyt | 32777 | 12 |
+| Generic | 15752 | 12 |
+
+No non-integer values in any `double` count column (row groups 0, 12, 24).

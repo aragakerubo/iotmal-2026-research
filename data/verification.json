@@ -25,6 +25,20 @@
       "Std",
       "Variance"
     ],
+    "hashes_per_class": {
+      "Mirai": 2795,
+      "Unknown": 695,
+      "Benign": 1980,
+      "DarkNexus": 91,
+      "Gafgyt": 5,
+      "Generic": 29,
+      "Tsunami": 3,
+      "Agent": 1
+    },
+    "sampled_row_groups": [
+      0
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -50,6 +64,20 @@
     "rows_per_hash_median": 119.0,
     "rows_per_hash_max": 179,
     "null_columns": [],
+    "hashes_per_class": {
+      "Mirai": 2721,
+      "Benign": 1945,
+      "Unknown": 675,
+      "DarkNexus": 88,
+      "Generic": 29,
+      "Gafgyt": 5,
+      "Tsunami": 3,
+      "Agent": 1
+    },
+    "sampled_row_groups": [
+      0
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -74,6 +102,21 @@
     "rows_per_hash_median": 18.0,
     "rows_per_hash_max": 106660,
     "null_columns": [],
+    "hashes_per_class": {
+      "Mirai": 2795,
+      "Benign": 1980,
+      "DarkNexus": 91,
+      "Generic": 29,
+      "Gafgyt": 5,
+      "Tsunami": 3,
+      "Agent": 1
+    },
+    "sampled_row_groups": [
+      0,
+      10,
+      20
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -100,6 +143,18 @@
       "Std",
       "Variance"
     ],
+    "hashes_per_class": {
+      "Mirai": 1616,
+      "Unknown": 401,
+      "Benign": 2617,
+      "Gafgyt": 29,
+      "DarkNexus": 44,
+      "Generic": 2
+    },
+    "sampled_row_groups": [
+      0
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -143,6 +198,18 @@
       "network.net-edev[3].rxfifo",
       "network.net-edev[3].txfifo"
     ],
+    "hashes_per_class": {
+      "Benign": 2433,
+      "Mirai": 1544,
+      "Unknown": 393,
+      "DarkNexus": 42,
+      "Gafgyt": 24,
+      "Generic": 2
+    },
+    "sampled_row_groups": [
+      0
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -165,6 +232,19 @@
     "rows_per_hash_median": 1592.5,
     "rows_per_hash_max": 184253,
     "null_columns": [],
+    "hashes_per_class": {
+      "Mirai": 1616,
+      "Benign": 2617,
+      "DarkNexus": 44,
+      "Gafgyt": 29,
+      "Generic": 2
+    },
+    "sampled_row_groups": [
+      0,
+      14,
+      28
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -193,6 +273,21 @@
       "Std",
       "Variance"
     ],
+    "hashes_per_class": {
+      "Mirai": 1534,
+      "Unknown": 1376,
+      "Benign": 2511,
+      "Gafgyt": 23,
+      "DarkNexus": 40,
+      "Generic": 4,
+      "Agent": 1,
+      "Rudedevil": 1
+    },
+    "sampled_row_groups": [
+      0,
+      1
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -239,6 +334,20 @@
       "network.net-edev[3].txfifo",
       "filesystems[0].filesystem"
     ],
+    "hashes_per_class": {
+      "Benign": 2375,
+      "Mirai": 1483,
+      "Unknown": 1322,
+      "DarkNexus": 39,
+      "Gafgyt": 21,
+      "Generic": 4,
+      "Agent": 1,
+      "Rudedevil": 1
+    },
+    "sampled_row_groups": [
+      0
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -263,6 +372,21 @@
     "rows_per_hash_median": 1602.5,
     "rows_per_hash_max": 178125,
     "null_columns": [],
+    "hashes_per_class": {
+      "Mirai": 1534,
+      "Benign": 2511,
+      "DarkNexus": 40,
+      "Gafgyt": 23,
+      "Generic": 4,
+      "Agent": 1,
+      "Rudedevil": 1
+    },
+    "sampled_row_groups": [
+      0,
+      13,
+      26
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -289,6 +413,18 @@
       "Std",
       "Variance"
     ],
+    "hashes_per_class": {
+      "Mirai": 1657,
+      "Benign": 2570,
+      "Unknown": 174,
+      "DarkNexus": 50,
+      "Gafgyt": 12,
+      "Generic": 12
+    },
+    "sampled_row_groups": [
+      0
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -333,6 +469,18 @@
       "network.net-edev[2].rxfifo",
       "network.net-edev[2].txfifo"
     ],
+    "hashes_per_class": {
+      "Benign": 2570,
+      "Mirai": 1620,
+      "Unknown": 173,
+      "DarkNexus": 50,
+      "Generic": 12,
+      "Gafgyt": 10
+    },
+    "sampled_row_groups": [
+      0
+    ],
+    "filled_columns": {},
     "contiguous": true
   },
   {
@@ -355,6 +503,19 @@
     "rows_per_hash_median": 1152.0,
     "rows_per_hash_max": 175532,
     "null_columns": [],
+    "hashes_per_class": {
+      "Mirai": 1657,
+      "Benign": 2570,
+      "DarkNexus": 50,
+      "Gafgyt": 12,
+      "Generic": 12
+    },
+    "sampled_row_groups": [
+      0,
+      12,
+      24
+    ],
+    "filled_columns": {},
     "contiguous": true
   }
 ]
