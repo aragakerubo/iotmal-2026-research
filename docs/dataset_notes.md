@@ -55,11 +55,16 @@ at least one piece, because pandas promotes an integer column to float
 when it must hold NaN. The row-level scan found no nulls in any STRACE
 file, so the NaNs were filled before release; the fill check in the
 same scan (non-integer values in `double` count columns) says whether
-the fill was the column mean, as the authors' reader does. Three names
-are truncated (`Call_rt_si`, `Call_setso`, `Call_wri`), which look like
-syscall names cut off at a log boundary; whether they fold into
-`rt_sigaction`, `setsockopt` and `write` or are dropped is a
-canonicalisation decision.
+the fill was the column mean, as the authors' reader does. Across the four
+files there are 181 distinct names; 23 of them are truncated (`Call_g`,
+`Call_readlin`, `Call_wri`, ...), syscall names cut off at a log
+boundary, and one is an undecoded number (`Call_syscall_0x193`, which is
+`clock_gettime64` in the 32-bit ARM table). D6 and
+`configs/syscall_canonical.yaml` fold the ABI aliases and the
+unambiguous fragments onto 132 canonical names and drop the rest;
+`data/syscall_resolution.csv` lists the outcome for every raw column and
+`data/syscall_vocabulary.csv` which architectures feed each canonical
+name.
 
 Row groups hold about a million rows each (21 on ARM, 29 on MIPS, 27
 on MIPSEL, 25 on x86). Every binary's rows are one unbroken block in

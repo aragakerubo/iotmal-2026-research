@@ -1,0 +1,88 @@
+# Canonical syscall vocabulary for CIC-YNU-IoTMal STRACE tables (D6).
+#
+# The four STRACE files name their columns Call_<syscall> as strace printed
+# the name on that architecture. 32-bit kernels expose many syscalls under
+# ABI-specific names (mmap2, fstat64, getuid32, _llseek ...), so the same
+# behaviour lands in differently named columns per architecture. This file
+# folds those names onto one vocabulary so a model trained on three
+# architectures sees the same columns on the fourth.
+#
+# aliases:   canonical name -> raw names that mean the same call. Every raw
+#            name here is summed into the canonical column.
+# fragments: raw names that are not syscalls at all but prefixes of one,
+#            produced when a log line was cut off. A fragment is folded into
+#            a canonical name only when exactly one canonical name in the
+#            vocabulary starts with it; otherwise it is dropped. The code
+#            applies that rule; this list only says which names are fragments.
+#
+# Sources: strace's syscallent tables for arm (EABI), mips (o32) and i386;
+# the union of column names in data/strace_columns.csv.
+
+aliases:
+  # 32-bit large-file and "64" variants of classic calls
+  mmap: [mmap2]
+  fstat: [fstat64]
+  # stat by path: stat64 (32-bit), fstatat64 (relative, as newer libcs call it)
+  # and statx (newest) all answer the same question about a path
+  stat: [stat64, fstatat64, statx]
+  lstat: [lstat64]
+  lseek: [_llseek]
+  select: [_newselect]
+  fcntl: [fcntl64]
+  getdents: [getdents64]
+  truncate: [truncate64]
+  ftruncate: [ftruncate64]
+  sendfile: [sendfile64]
+  pread: [pread64]
+  pwrite: [pwrite64]
+  statfs: [statfs64]
+  prlimit: [prlimit64]
+  # resource limits: ARM and i386 expose the old getrlimit as ugetrlimit
+  getrlimit: [ugetrlimit]
+  # 64-bit time variants (y2038), plus ARM's undecoded number 403 = 0x193,
+  # which is __NR_clock_gettime64 in the 32-bit ARM syscall table
+  clock_gettime: [clock_gettime64, syscall_0x193]
+  clock_nanosleep: [clock_nanosleep_time64]
+  # 32-bit uid/gid calls carry a "32" suffix on ARM and i386
+  getuid: [getuid32]
+  geteuid: [geteuid32]
+  getgid: [getgid32]
+  setuid: [setuid32]
+  setgid: [setgid32]
+  setresuid: [setresuid32]
+  chown: [chown32]
+  # same operation, newer entry point (the *at forms are how newer libcs
+  # issue open and unlink; only ARM's samples used them)
+  umount: [umount2]
+  epoll_wait: [epoll_pwait]
+  rt_sigreturn: [sigreturn]
+  open: [openat]
+  unlink: [unlinkat]
+  tkill: [tgkill]
+  # thread-local storage setup: set_tls on ARM, set_thread_area on MIPS and i386
+  set_thread_area: [set_tls]
+
+fragments:
+  - cloc
+  - fc
+  - g
+  - ge
+  - get
+  - getd
+  - gett
+  - getti
+  - gettime
+  - ioct
+  - na
+  - r
+  - re
+  - readlin
+  - rt_
+  - rt_si
+  - rt_sig
+  - rt_sigact
+  - s
+  - setso
+  - socke
+  - tim
+  - wri
