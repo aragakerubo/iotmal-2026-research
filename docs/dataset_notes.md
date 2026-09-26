@@ -31,14 +31,51 @@ verification step).
 
 | Modality | Columns | Notes |
 | --- | --- | --- |
-| pcap | 42 | 40 pcap2csv features plus the shared columns |
-| sar | 394 to 411 | Differs by architecture |
-| strace | 130 to 135 | Differs by architecture: 130 on MIPS, 132 on MIPSEL, 135 on x86 |
+| pcap | 42 | 39 flow features plus the shared columns, identical on every architecture |
+| sar | 394 to 463 | 394 on MIPS and MIPSEL, 411 on x86, 463 on ARM |
+| strace | 130 to 135 | 130 on MIPS, 132 on MIPSEL, 134 on ARM, 135 on x86 |
 
 The paper's Table 4 text attaches the "392 to 461" range to STRACE; the
-files show it belongs to SAR. STRACE is one column per syscall name
-plus the shared columns, and the per-architecture difference is the
-alias problem (`mmap2` against `mmap` and so on) in concrete form.
+files show it belongs to SAR, and ARM exceeds it. STRACE is one column
+per syscall name plus the shared columns, and the per-architecture
+difference is the alias problem (`mmap2` against `mmap` and so on) in
+concrete form.
+
+Every file carries the same three shared columns: `Hash` (SHA-256 of
+the binary, one string per row), `MalwareFamily`, `Arch`. There is no
+timestamp, window index or sequence number, so row order inside the
+file is the only possible carrier of sequence.
+
+### STRACE columns
+
+Named `Call_<syscall>`, one per syscall name as strace printed it. The
+dtype marks the column's history: `int8` columns were present in every
+piece the file was assembled from; `double` columns were missing from
+at least one piece, because pandas promotes an integer column to float
+when it must hold NaN. So the type alone says which columns D5's
+zero-fill touches. Three names are truncated (`Call_rt_si`,
+`Call_setso`, `Call_wri`), which look like syscall names cut off at a
+log boundary; whether they fold into `rt_sigaction`, `setsockopt` and
+`write` or are dropped is a canonicalisation decision.
+
+Row groups hold about a million rows each (21 on ARM, 29 on MIPS, 27
+on MIPSEL, 25 on x86), consistent with the file having been written by
+appending pieces.
+
+### PCAP columns
+
+The 39 features are CIC's standard flow set, the same as CICIoT2023:
+`Header_Length`, `Protocol Type`, `Time_To_Live`, `Rate`, seven flag
+ratios and four flag counts, fifteen protocol indicator shares (`HTTP`,
+`HTTPS`, `DNS`, `Telnet`, `SMTP`, `SSH`, `IRC`, `TCP`, `UDP`, `DHCP`,
+`ARP`, `ICMP`, `IGMP`, `IPv`, `LLC`), packet-size statistics (`Tot sum`,
+`Min`, `Max`, `AVG`, `Std`, `Tot size`, `Number`, `Variance`) and `IAT`.
+There is no source or destination address, no port and no hostname, so
+nothing in the released features encodes where the benign programs'
+traffic went. Two columns can still act as sandbox fingerprints and get
+an ablation: `DNS` (the benign prompt resolves google.com and bing.com;
+Mirai scans raw addresses) and `Time_To_Live` (replies from the internet
+against replies from the internal range).
 
 ## Missing values in strace.parquet
 
@@ -62,13 +99,15 @@ rows, which lands almost entirely in pcap and sar:
 
 | Arch | pcap | sar | strace |
 | --- | --- | --- | --- |
+| arm | 113,620 (15.4%) | 79,613 (12.3%) | 0 |
 | mips | 149,133 (17.1%) | 34,210 (7.9%) | 0 |
 | mipsel | 425,326 (38.5%) | 129,754 (25.1%) | 0 |
 | x86 | 31,531 (6.9%) | 20,570 (3.9%) | 0 |
 
 Dropping 38.5 percent of MIPSEL's network rows is a material choice and
-goes in the paper's limitations. ARM's row is filled in by the first
-manifest run against the extracted files.
+goes in the paper's limitations. `data/MANIFEST.md` holds the scan these
+numbers come from; `data/VERIFICATION.md` (the row-level scan) confirms
+them from the label column itself.
 
 Two small inconsistencies inside the paper itself: `combined.csv` sums
 ARM strace to 21,989,296 where Table 5 prints 21,989,278, and ARM sar to
