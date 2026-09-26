@@ -26,7 +26,7 @@ Raw data is not committed. It lives in the project bucket under
 python -m venv .venv && source .venv/bin/activate
 make install          # package plus dev tools
 make check            # ruff and pytest
-pip install -e ".[aws]"   # only where S3 is read or jobs are launched
+make install-aws      # on the Studio space: adds boto3 and sagemaker
 ```
 
 ## How changes arrive
