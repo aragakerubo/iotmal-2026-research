@@ -70,3 +70,19 @@ times.
 **Revisit if** spot capacity for the GPU instance is unavailable for
 more than a day during the training weeks; then the final runs go
 on-demand and the buffer pays for it.
+
+## D5: A missing syscall count is zero, not the column mean
+
+When a row of `strace.parquet` has no value for a syscall column, we
+treat it as zero occurrences in that window.
+
+**Why.** The file was assembled from pieces with different column sets,
+so a NaN means the syscall never appeared in the piece the row came
+from. The authors' published reader fills these NaNs with the column's
+global mean, which writes a dataset-wide statistic into every row and
+makes "this syscall did not happen" indistinguishable from "this
+syscall happened about as often as usual". Zero is what the tracer
+would have recorded.
+
+**Revisit if** the authors publish a different account of how the
+pieces were merged.

@@ -4,11 +4,11 @@
 
 ## Install the package in editable mode with the dev tools.
 install:
-	pip install -e ".[dev]"
+	python -m pip install -e ".[dev]"
 
 ## Install the package in editable mode with the aws and dev tools.
 install-aws:
-	pip install -e ".[dev,aws]"
+	python -m pip install -e ".[dev,aws]"
 
 ## Lint and test. This is the gate for every branch.
 check: lint test
