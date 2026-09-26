@@ -129,3 +129,25 @@ architecture-sanity classifier in the split step.
 canonical columns; then the semantic-group representation (file,
 network, process, memory, time, signal) replaces this vocabulary as the
 model input.
+
+## D7: Family classification covers four classes; the rest is a case study
+
+The family experiment uses Benign, Mirai, DarkNexus and Gafgyt. A class
+enters only with at least ten distinct binaries on every architecture
+it is evaluated on. Generic is excluded as a catch-all label rather than
+a family. Tsunami, Agent and Rudedevil are reported as a leakage case
+study: under a row-level split a model "learns" a one-binary class by
+memorising that binary, which is what the dataset paper's per-class
+numbers on these classes measure.
+
+**Why.** Binaries per class in the STRACE files (data/VERIFICATION.md):
+Benign 1,980 to 2,617 per architecture, Mirai 1,534 to 2,795, DarkNexus
+40 to 91, Gafgyt 5 to 29, Generic 2 to 29, Tsunami 3 (ARM only), Agent
+1 (ARM, MIPSEL), Rudedevil 1 (MIPSEL). Gafgyt on ARM has five binaries
+and stays in with that caveat stated; anything smaller cannot support
+a held-out estimate at all. Binary detection is unaffected: about 7,900
+malware binaries against 9,700 benign, of which roughly 7,600 are Mirai,
+which the paper states in its abstract.
+
+**Revisit if** a later release of the dataset adds binaries to the
+small families.
