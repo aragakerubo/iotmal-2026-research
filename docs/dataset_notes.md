@@ -52,15 +52,31 @@ Named `Call_<syscall>`, one per syscall name as strace printed it. The
 dtype marks the column's history: `int8` columns were present in every
 piece the file was assembled from; `double` columns were missing from
 at least one piece, because pandas promotes an integer column to float
-when it must hold NaN. So the type alone says which columns D5's
-zero-fill touches. Three names are truncated (`Call_rt_si`,
-`Call_setso`, `Call_wri`), which look like syscall names cut off at a
-log boundary; whether they fold into `rt_sigaction`, `setsockopt` and
-`write` or are dropped is a canonicalisation decision.
+when it must hold NaN. The row-level scan found no nulls in any STRACE
+file, so the NaNs were filled before release; the fill check in the
+same scan (non-integer values in `double` count columns) says whether
+the fill was the column mean, as the authors' reader does. Three names
+are truncated (`Call_rt_si`, `Call_setso`, `Call_wri`), which look like
+syscall names cut off at a log boundary; whether they fold into
+`rt_sigaction`, `setsockopt` and `write` or are dropped is a
+canonicalisation decision.
 
 Row groups hold about a million rows each (21 on ARM, 29 on MIPS, 27
-on MIPSEL, 25 on x86), consistent with the file having been written by
-appending pieces.
+on MIPSEL, 25 on x86). Every binary's rows are one unbroken block in
+every file, and the number of binaries that straddle a row-group
+boundary is always `row groups minus one`, so the groups are plain
+chunks of a file that was already ordered by binary.
+
+### Binaries, not rows
+
+Rows per binary are extremely skewed in STRACE: on ARM the median
+binary has 18 windows and the largest 106,660; on MIPS the median is
+1,592 and the largest 184,253. Class balance and the hash-grouped split
+therefore have to be planned on binaries per class (in
+`data/VERIFICATION.md`), and a per-binary window cap is what keeps a
+handful of long-running Mirai samples from being most of the training
+set. SAR's median of 95 to 120 rows per binary at one sample per second
+puts a typical execution at about two minutes.
 
 ### PCAP columns
 

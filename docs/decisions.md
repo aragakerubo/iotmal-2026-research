@@ -86,3 +86,11 @@ would have recorded.
 
 **Revisit if** the authors publish a different account of how the
 pieces were merged.
+
+**Note (2026-09-26).** The released STRACE files hold no nulls: the
+fill was applied before release. If the row-level scan's fill check
+shows a single repeated non-integer value in a `double` count column,
+that value is the mean the authors filled with, and this decision is
+carried out by mapping that value back to zero rather than by filling
+nulls. If the check shows no non-integer values, the release was
+zero-filled already and there is nothing to do.

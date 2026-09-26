@@ -108,3 +108,57 @@ def test_to_dict_includes_the_derived_contiguous_flag(contiguous_file):
     d = verify.scan_file(contiguous_file, "strace.parquet").to_dict()
     assert d["contiguous"] is True
     assert d["class_counts"]["Mirai"] == 4
+
+
+def test_hashes_per_class_counts_distinct_binaries_not_rows(contiguous_file):
+    report = verify.scan_file(contiguous_file, "strace.parquet")
+    # a: 4 rows Mirai, b: 3 rows Benign, c: 5 rows Unknown -> one binary each
+    assert report.hashes_per_class == {"Unknown": 1, "Mirai": 1, "Benign": 1}
+
+
+def test_a_class_spread_over_several_binaries_is_counted_once_per_binary(tmp_path):
+    hashes = ["a"] * 2 + ["b"] * 2 + ["c"] * 2
+    labels = ["Mirai"] * 6
+    parquet = _write(tmp_path / "m.parquet", hashes, labels, row_group_size=4)
+    report = verify.scan_file(parquet, "m.parquet")
+    assert report.hashes_per_class == {"Mirai": 3}
+
+
+def test_a_mean_filled_count_column_is_detected_by_its_single_repeated_fraction(tmp_path):
+    n = 10
+    hashes = ["a"] * n
+    labels = ["Mirai"] * n
+    extra = {
+        # mean-filled: integers except the fill value 0.37 on three rows
+        "Call_filled": pa.array([1.0, 0.37, 2.0, 0.37, 0.0, 3.0, 0.37, 1.0, 0.0, 2.0]),
+        # a double column that is integer everywhere: a count, not a fill
+        "Call_clean": pa.array([float(i % 3) for i in range(n)]),
+        # a non-count double column with fractions is ignored by the check
+        "Std": pa.array([0.5] * n),
+    }
+    parquet = _write(tmp_path / "f.parquet", hashes, labels, extra=extra, row_group_size=5)
+    report = verify.scan_file(parquet, "f.parquet")
+    assert report.sampled_row_groups == [0, 1]
+    assert set(report.filled_columns) == {"Call_filled"}
+    f = report.filled_columns["Call_filled"]
+    assert (f.rows_sampled, f.non_integer_rows, f.distinct_non_integer) == (10, 3, 1)
+    assert f.top_value == pytest.approx(0.37)
+    assert f.top_value_rows == 3
+
+
+def test_the_fill_check_samples_first_last_and_evenly_between():
+    assert verify._spread(21, 3) == [0, 10, 20]
+    assert verify._spread(2, 3) == [0, 1]
+    assert verify._spread(29, 4) == [0, 9, 19, 28]
+    assert verify._spread(5, 1) == [0]
+
+
+def test_render_markdown_shows_binaries_per_class_and_the_fill_table(tmp_path):
+    hashes = ["a"] * 4
+    labels = ["Mirai"] * 4
+    extra = {"Call_filled": pa.array([1.0, 0.25, 0.25, 2.0])}
+    parquet = _write(tmp_path / "f.parquet", hashes, labels, extra=extra)
+    md = verify.render_markdown([verify.scan_file(parquet, "f.parquet")])
+    assert "| Class | Rows | Binaries |" in md
+    assert "| Mirai | 4 | 1 |" in md
+    assert "| Call_filled | 4 | 2 | 1 | 0.25 | 2 |" in md
