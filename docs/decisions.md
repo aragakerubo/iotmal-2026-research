@@ -94,3 +94,38 @@ that value is the mean the authors filled with, and this decision is
 carried out by mapping that value back to zero rather than by filling
 nulls. If the check shows no non-integer values, the release was
 zero-filled already and there is nothing to do.
+
+## D6: One syscall vocabulary across architectures, by alias table and prefix rule
+
+Every raw `Call_<syscall>` column is resolved to one of 132 canonical
+names or dropped, by `configs/syscall_canonical.yaml` and the rules in
+`iotmal.canonical`: an ABI-specific alias (`mmap2`, `fstat64`,
+`getuid32`, `_llseek`, `set_tls`, ARM's undecoded `syscall_0x193`) is
+summed into its canonical column; a truncated name (`readlin`, `wri`)
+is folded into the one canonical name it is a prefix of, and dropped
+when it is a prefix of several; every other name is its own canonical
+column. A canonical name with no source column on an architecture is
+zero there. The per-column outcome is committed in
+`data/syscall_resolution.csv`.
+
+**Why.** The four STRACE files have 130 to 135 columns each and 181
+distinct names between them, and the differences are almost entirely
+naming: the 32-bit ABIs expose the same calls under different entry
+points, and a model given the raw columns can tell architectures apart
+by which columns are non-zero. The alias table removes the naming
+signal so what remains is behaviour. The prefix rule is mechanical so
+a reviewer can check every fold; eight fragments fold, fifteen drop,
+and the dropped ones are single letters or ambiguous stems whose counts
+cannot be attributed.
+
+**What it does not remove.** Forty-odd canonical calls occur on some
+architectures and not others (`cacheflush` never on x86, `statx` never
+on ARM in this data). Those are real behavioural differences of the
+binaries and libcs, not naming, and they stay. Whether a model can
+still fingerprint the architecture from them is measured by the
+architecture-sanity classifier in the split step.
+
+**Revisit if** the sanity classifier scores far above chance on the
+canonical columns; then the semantic-group representation (file,
+network, process, memory, time, signal) replaces this vocabulary as the
+model input.
