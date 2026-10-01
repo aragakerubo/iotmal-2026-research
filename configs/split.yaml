@@ -1,0 +1,41 @@
+# How binaries are assigned to train, validation and test (D2, revised; D8).
+#
+# seed:       fixed so the assignment is reproducible; change it only to
+#             produce a second, independent split for a robustness check.
+# fractions:  share of each architecture's usable binaries per split; the
+#             assignment works in whole groups, so the achieved shares differ
+#             slightly from these, and the report records the achieved ones.
+# group_by:   the key that keeps "the same program" on one side.
+#               exact   - identical summed syscall vectors (subsumes hash)
+#               profile - identical proportions, rounded (stricter)
+#               hash    - the file hash only (the original D2)
+# inert:      a binary whose whole trace has fewer than max_calls system
+#             calls and none of the network calls listed never reached its
+#             own logic (a loader that failed, a bot that printed and quit).
+#             Such binaries are excluded from every split and reported
+#             instead, because a trace without behaviour carries no label
+#             a model could learn from.
+# drop_labels: labels removed before splitting.
+
+seed: 20260922
+fractions:
+  train: 0.70
+  val: 0.10
+  test: 0.20
+group_by: exact
+inert:
+  max_calls: 64
+  network_calls:
+    - accept
+    - bind
+    - connect
+    - listen
+    - recv
+    - recvfrom
+    - recvmsg
+    - send
+    - sendmsg
+    - sendto
+    - socket
+drop_labels:
+  - Unknown
