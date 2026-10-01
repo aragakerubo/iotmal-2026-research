@@ -21,32 +21,16 @@ import sys
 from datetime import date
 
 import polars as pl
-from pyarrow import fs as pafs
 
 from iotmal import dedup, split
 from iotmal.paths import DATA_DIR, ensure_dir
-
-
-def load_binaries(source: str | None) -> pl.DataFrame:
-    """Concatenate the four per-architecture feature-store files from disk or S3."""
-    if source is None:
-        files = sorted((DATA_DIR / "binaries").glob("*_strace.parquet"))
-        return pl.concat([pl.read_parquet(f) for f in files])
-    filesystem, root = pafs.FileSystem.from_uri(source)
-    infos = filesystem.get_file_info(pafs.FileSelector(root))
-    frames = []
-    for info in sorted(infos, key=lambda i: i.path):
-        if info.path.endswith("_strace.parquet"):
-            with filesystem.open_input_file(info.path) as handle:
-                frames.append(pl.read_parquet(handle))
-    return pl.concat(frames)
 
 
 def main(source: str | None) -> None:
     """Build, check and write the splits."""
     cfg = split.SplitConfig.load()
     vocabulary = pl.read_csv(DATA_DIR / "syscall_vocabulary.csv")["canonical"].to_list()
-    binaries = load_binaries(source)
+    binaries = dedup.load_feature_store(source)
     signed = dedup.add_signatures(binaries, vocabulary)
     assignment = split.assign(signed, cfg)
     split.check(assignment)
