@@ -24,7 +24,7 @@ Built on 2026-10-01 with seed 20260922, grouped by `exact`, shares {'train': 0.7
 | mipsel | Rudedevil | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
 | mipsel | Agent | 1 | 0 | 0 | 1 | 1 | 0 | 0 |
 | x86 | Benign | 2570 | 8 | 0 | 2552 | 1792 | 257 | 513 |
-| x86 | Mirai | 1657 | 103 | 190 | 1268 | 954 | 137 | 273 |
-| x86 | DarkNexus | 50 | 0 | 0 | 34 | 35 | 5 | 10 |
-| x86 | Generic | 12 | 0 | 1 | 11 | 7 | 2 | 2 |
+| x86 | Mirai | 1657 | 103 | 0 | 1269 | 1098 | 152 | 304 |
+| x86 | DarkNexus | 50 | 0 | 0 | 34 | 37 | 5 | 8 |
 | x86 | Gafgyt | 12 | 0 | 0 | 12 | 7 | 2 | 3 |
+| x86 | Generic | 12 | 0 | 0 | 12 | 7 | 2 | 3 |
