@@ -45,9 +45,12 @@ near-duplicate scan showed that identical traces under different hashes
 are common (1,687 ARM benign binaries share one trace; 190 x86 Mirai
 binaries share another), and a hash-grouped split would place copies
 of the same trace on both sides. Grouping by exact vector subsumes
-grouping by hash, since one hash always gives one vector. A group whose
-binaries carry more than one label (three signatures on ARM, one on
-x86) is set aside as a conflict and neither trained on nor scored. The
+grouping by hash, since one hash always gives one vector. A group that
+holds both benign and malicious binaries is set aside as a conflict and
+neither trained on nor scored; two malware labels on one trace (190 x86
+Mirai binaries share theirs with one labelled Generic) agree on the
+detection target and stay in. After inert binaries are removed no
+conflict remains on any architecture. The
 assignment is in `configs/split.yaml` and `data/splits/`, and
 `tests/test_split.py` asserts that no group and no hash crosses a
 split within an architecture.
@@ -176,8 +179,12 @@ reached its own logic. Inert binaries are excluded from training and
 from every metric, and counted per class and architecture in
 `data/SPLIT.md`.
 
-**Why.** On ARM, 1,687 of 1,980 benign binaries produced one identical
-trace of about 35 calls: a dynamic loader mapping shared libraries,
+**Why.** On ARM, 1,830 of 1,980 benign binaries, 1,212 of 2,795 Mirai
+binaries and 50 of 91 DarkNexus binaries are inert under this rule,
+against 2 to 7 percent of any class on the other three architectures
+(`data/SPLIT.md`). The two largest identical groups show what the inert
+traces are. 1,687 of the benign binaries produced one identical trace
+of about 35 calls: a dynamic loader mapping shared libraries,
 one `writev` (an error message), and `exit_group`. 560 of 2,795 ARM
 Mirai binaries produced another: `execve`, `getpid`, `writev`,
 `exit_group`, a statically linked bot that printed and quit. Neither

@@ -35,7 +35,8 @@ WINDOW = 20
 SPLITS = ("train", "val", "test")
 INERT = "inert"
 CONFLICT = "conflict"
-"""Split value for binaries whose behaviour signature carries more than one label."""
+"""Split value for binaries whose behaviour signature is both benign and malicious."""
+BENIGN = "Benign"
 
 
 @dataclass(frozen=True)
@@ -87,10 +88,10 @@ def assign(signed: pl.DataFrame, cfg: SplitConfig) -> pl.DataFrame:
 
     ``signed`` is the per-binary feature store with signature columns
     (``dedup.add_signatures``). Rows whose label is in ``drop_labels`` are
-    removed; inert rows get split ``inert``; rows whose group carries
-    more than one label within an architecture get split ``conflict``,
-    since identical behaviour with different labels can be neither
-    trained on nor scored; the rest are dealt out per architecture and
+    removed; inert rows get split ``inert``; rows whose group holds both
+    benign and malicious binaries within an architecture get split
+    ``conflict``, since identical behaviour with opposite labels can be
+    neither trained on nor scored; the rest are dealt out per architecture and
     family in whole groups. Groups are scoped to an architecture, so the
     same signature on two architectures is two groups, which is what
     leave-one-architecture-out needs.
@@ -101,12 +102,17 @@ def assign(signed: pl.DataFrame, cfg: SplitConfig) -> pl.DataFrame:
     frame = frame.with_columns(
         pl.concat_str([pl.col(ARCH), pl.col(key).cast(pl.String)], separator=":").alias("group")
     )
-    labels_per_group = (
+    # A group conflicts only when it mixes benign and malicious binaries. Two
+    # malware labels on one trace (190 x86 Mirai binaries share a trace with one
+    # labelled Generic) agree on the detection target, and the family
+    # experiment selects its own classes (D7), so they are not a conflict here.
+    sides_per_group = (
         frame.filter(~pl.col(INERT))
+        .with_columns((pl.col(LABEL) == BENIGN).alias("is_benign"))
         .group_by("group")
-        .agg(pl.col(LABEL).n_unique().alias("n_labels"))
+        .agg(pl.col("is_benign").n_unique().alias("n_sides"))
     )
-    conflicted = set(labels_per_group.filter(pl.col("n_labels") > 1)["group"].to_list())
+    conflicted = set(sides_per_group.filter(pl.col("n_sides") > 1)["group"].to_list())
     frame = frame.with_columns(pl.col("group").is_in(list(conflicted)).alias(CONFLICT))
 
     rng = np.random.default_rng(cfg.seed)
