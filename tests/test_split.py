@@ -127,15 +127,25 @@ def test_summary_and_markdown_report_inert_groups_and_per_split_counts(cfg):
     assert "| arm | Mirai | 10 | 0 | 0 | 10 | 7 | 1 | 2 |" in md
 
 
-def test_a_signature_shared_by_two_labels_is_set_aside_as_conflict(cfg):
+def test_a_signature_shared_by_benign_and_malware_is_set_aside_as_conflict(cfg):
     rows = [
         ("a", "Benign", "arm", 300, 1, 1, 2, 2, 1, 3),
-        ("b", "Mirai", "arm", 300, 1, 1, 2, 2, 1, 3),  # identical to a, other label
+        ("b", "Mirai", "arm", 300, 1, 1, 2, 2, 1, 3),  # identical to a, other side
         ("c", "Mirai", "arm", 300, 1, 1, 9, 2, 1, 3),
     ]
     out = split.assign(_signed(rows), cfg)
     by = dict(zip(out["Hash"].to_list(), out["split"].to_list()))
     assert by["a"] == "conflict" and by["b"] == "conflict" and by["c"] == "train"
+    split.check(out)
+
+
+def test_a_signature_shared_by_two_malware_labels_is_not_a_conflict(cfg):
+    # the x86 case: 190 Mirai binaries and one Generic binary with one trace
+    rows = [(f"m{i}", "Mirai", "x86", 300, 1, 1, 2, 2, 1, 3) for i in range(5)]
+    rows.append(("g", "Generic", "x86", 300, 1, 1, 2, 2, 1, 3))
+    out = split.assign(_signed(rows), cfg)
+    assert "conflict" not in out["split"].to_list()
+    assert out["split"].n_unique() == 1  # one group, one side
     split.check(out)
 
 
