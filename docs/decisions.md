@@ -38,6 +38,20 @@ writing measures the gap between the two splits as a result of its own.
 fallback is re-running binaries through the published sandbox to
 regenerate traces with hashes attached.
 
+**Revision (2026-10-01).** The unit of the split is now a behaviour
+group rather than a hash: all binaries of one architecture whose summed
+canonical syscall vectors are identical go to the same side. The
+near-duplicate scan showed that identical traces under different hashes
+are common (1,687 ARM benign binaries share one trace; 190 x86 Mirai
+binaries share another), and a hash-grouped split would place copies
+of the same trace on both sides. Grouping by exact vector subsumes
+grouping by hash, since one hash always gives one vector. A group whose
+binaries carry more than one label (three signatures on ARM, one on
+x86) is set aside as a conflict and neither trained on nor scored. The
+assignment is in `configs/split.yaml` and `data/splits/`, and
+`tests/test_split.py` asserts that no group and no hash crosses a
+split within an architecture.
+
 ## D3: STRACE and PCAP are in scope; SAR is not
 
 The features come from the syscall-window tables and the network-window
@@ -151,3 +165,37 @@ which the paper states in its abstract.
 
 **Revisit if** a later release of the dataset adds binaries to the
 small families.
+
+
+## D8: Inert executions are excluded, and the ARM sandbox mostly produced them
+
+A binary whose whole trace has fewer than 64 system calls and no
+network call (`socket`, `connect`, `bind`, `listen`, `accept`, `send`,
+`sendto`, `sendmsg`, `recv`, `recvfrom`, `recvmsg`) is inert: it never
+reached its own logic. Inert binaries are excluded from training and
+from every metric, and counted per class and architecture in
+`data/SPLIT.md`.
+
+**Why.** On ARM, 1,687 of 1,980 benign binaries produced one identical
+trace of about 35 calls: a dynamic loader mapping shared libraries,
+one `writev` (an error message), and `exit_group`. 560 of 2,795 ARM
+Mirai binaries produced another: `execve`, `getpid`, `writev`,
+`exit_group`, a statically linked bot that printed and quit. Neither
+trace contains behaviour, so a label attached to it is a label on an
+exit code, and a model scored on them would be scored on whether it
+recognises a loader failure. The other three architectures have no
+such groups. The ARM figures the dataset paper reports are therefore
+largely measurements of samples that did not run, which the paper we
+write states as a finding and the dataset's authors should hear about.
+
+**What it does not settle.** The inert benign trace is a dynamic
+loader and the inert Mirai trace has none, which suggests a shortcut
+present on every architecture: the generated benign programs were
+compiled against OpenWrt's shared libc, while honeypot malware is
+mostly statically linked, so the first twenty calls of a trace may
+already name the class. The first-window-only baseline in the
+experiment list measures this.
+
+**Revisit if** a repaired ARM run of the dataset is released, or if
+the first-window baseline shows the threshold of 64 calls cuts into
+binaries that did run.

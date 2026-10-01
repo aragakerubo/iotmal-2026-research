@@ -72,6 +72,31 @@ every file, and the number of binaries that straddle a row-group
 boundary is always `row groups minus one`, so the groups are plain
 chunks of a file that was already ordered by binary.
 
+### Windows overlap by construction
+
+Each STRACE row counts the previous twenty calls and there is one row
+per call from the twentieth onward, so a binary with `w` windows has a
+trace of `w + 19` calls, and consecutive rows share nineteen of their
+twenty calls. Adjacent rows are 95 percent identical before any model
+sees them, which is why a row-level random split measures memorisation:
+a test row's near-twin is almost always in the training set. ARM's
+median of 18 windows is a trace of 37 calls.
+
+### Inert executions on ARM
+
+The near-duplicate scan (`data/DEDUP.md`) found that 1,687 of ARM's
+1,980 benign binaries share one summed syscall vector and 560 of its
+2,795 Mirai binaries share another. The benign one is 16 windows, a
+trace of about 35 calls, consisting of `execve`, the loader's `open`,
+`fstat`, `mmap`, `mprotect`, `close`, `fcntl`, `set_thread_area` and
+`set_tid_address`, one `writev` and `exit_group`: a dynamically linked
+program that failed at startup and printed an error. The Mirai one is
+4 windows, about 23 calls: `execve`, `getpid`, `writev`, `exit_group`,
+a static binary that printed and quit. On the other three architectures
+the benign class is almost entirely distinct (2,617 of 2,617 on MIPS)
+and the largest identical Mirai group is 190 (x86). D8 excludes inert
+binaries and records the counts.
+
 ### Binaries, not rows
 
 Rows per binary are extremely skewed in STRACE: on ARM the median
