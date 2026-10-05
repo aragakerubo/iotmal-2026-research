@@ -3,10 +3,13 @@
 The unit of assignment is a group of binaries that share one behaviour
 signature (``configs/split.yaml``, ``group_by``), so two binaries with
 identical traces can never sit on opposite sides. Within each
-architecture and family the groups are shuffled with a fixed seed and
-dealt out greedily: each group goes to whichever split is furthest
+architecture and family the groups are shuffled with a seed of their
+own, derived from the configured seed and the family's name, and dealt
+out greedily: each group goes to whichever split is furthest
 below its target share of binaries, which keeps the split stratified
-by family even when one group holds hundreds of binaries.
+by family even when one group holds hundreds of binaries. Because each
+family has its own seed, a change to one family's binaries never
+re-deals another family.
 
 Before assignment, inert binaries are set aside. A trace of fewer than
 ``max_calls`` system calls with no network call is a program that never
@@ -21,6 +24,7 @@ and the twenty calls ending at call ``i`` after that, so a binary with
 
 from __future__ import annotations
 
+import zlib
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -69,6 +73,16 @@ class SplitConfig:
             inert_network_calls=tuple(raw["inert"]["network_calls"]),
             drop_labels=frozenset(raw.get("drop_labels") or ()),
         )
+
+
+def family_rng(seed: int, arch: str, family: str) -> np.random.Generator:
+    """Return the random generator that deals one architecture's family.
+
+    The configured seed is combined with a CRC-32 of ``arch/family``,
+    which is the same in every run and on every machine; Python's own
+    ``hash`` of a string changes between runs and cannot be used.
+    """
+    return np.random.default_rng([seed, zlib.crc32(f"{arch}/{family}".encode())])
 
 
 def trace_length(windows: pl.Expr) -> pl.Expr:
@@ -136,7 +150,6 @@ def assign(signed: pl.DataFrame, cfg: SplitConfig) -> pl.DataFrame:
     )
     frame = frame.join(dealer, on="group", how="left", maintain_order="left")
 
-    rng = np.random.default_rng(cfg.seed)
     pieces = []
     for (arch, label), part in frame.group_by(ARCH, "deal_as", maintain_order=True):
         live = part.filter(~pl.col(INERT) & ~pl.col(CONFLICT))
@@ -149,7 +162,7 @@ def assign(signed: pl.DataFrame, cfg: SplitConfig) -> pl.DataFrame:
         if live.is_empty():
             continue
         sizes = live.group_by("group").len().sort("group")
-        order = rng.permutation(sizes.height)
+        order = family_rng(cfg.seed, arch, label).permutation(sizes.height)
         groups = sizes["group"].to_list()
         counts = sizes["len"].to_list()
         total = sum(counts)
@@ -192,7 +205,8 @@ def summary(assignment: pl.DataFrame) -> pl.DataFrame:
     out = base.join(groups, on=[ARCH, LABEL], how="left").join(
         per_split.select(ARCH, LABEL, *SPLITS), on=[ARCH, LABEL], how="left"
     )
-    return out.fill_null(0).sort(ARCH, "binaries", descending=[False, True])
+    # The class name breaks ties, so two classes of one size print in one order.
+    return out.fill_null(0).sort(ARCH, "binaries", LABEL, descending=[False, True, False])
 
 
 def check(assignment: pl.DataFrame) -> None:

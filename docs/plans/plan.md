@@ -1,6 +1,6 @@
 # Cross-Architecture IoT Malware Detection Plan
 
-Started 2026-09-20. Last updated 2026-10-05, after `fix/trace-length`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
+Started 2026-09-20. Last updated 2026-10-05, after `fix/split-determinism`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
 
 ## Research question
 
@@ -65,7 +65,7 @@ The split is placed after canonicalisation but before any statistic is fitted, s
 | Fill check | Samples the `double` count columns for non-integer values, which would be the fingerprint of the authors' mean-fill applied before release | No non-integer values anywhere, so D5 needs no code | Done |
 | Canonicalize | Folds 181 raw syscall names onto 132 canonical ones by an alias table and a unique-prefix rule for truncated names; zero where a call never occurs | Every architecture yields the same 132 columns; the per-column outcome is in `data/syscall_resolution.csv` | Done |
 | Near-duplicate scan | Sums each binary's canonical counts into one vector and counts distinct vectors per class under three signatures of decreasing strictness; the per-binary table it writes is the feature store the baselines train on | `data/DEDUP.md`: 1,687 ARM benign binaries share one trace, 190 x86 Mirai share another | Done |
-| Split | Sets aside inert binaries (fewer than 64 calls, no network call; D8), then assigns every behaviour group, meaning all binaries of one architecture with one exact syscall vector, to train, validation or test (70/10/20) per architecture and family, a group that spans two malware families being dealt once under the larger; a group that holds both benign and malicious binaries is a conflict and is scored by nobody | `data/SPLIT.md` and `data/splits/`: zero overlap of groups and hashes within an architecture, asserted by a test; no conflict remains after inert removal | Done |
+| Split | Sets aside inert binaries (fewer than 64 calls, no network call; D8), then assigns every behaviour group, meaning all binaries of one architecture with one exact syscall vector, to train, validation or test (70/10/20) per architecture and family, a group that spans two malware families being dealt once under the larger, each family with its own seed; a group that holds both benign and malicious binaries is a conflict and is scored by nobody | `data/SPLIT.md` and `data/splits/`: zero overlap of groups and hashes within an architecture, asserted by a test; no conflict remains after inert removal | Done |
 | Baselines | One XGBoost model on the per-binary feature store under three experiments: in-architecture on the split columns, leave-one-architecture-out on the whole held-out architecture, and an architecture-sanity classifier that predicts the architecture from the same features (D9) | `data/BASELINE.md`: metrics per fold in a per-binary view and a per-group view, with the test set's majority share printed as chance | Done |
 | First window | Keeps the first STRACE row of every binary in a second scan and trains on it alone, to measure whether the loader prologue already names the class (the linkage shortcut D8 raised) | Baseline metrics on first-window features against whole-trace features | Next |
 | Feature store | Writes canonicalised, split-labelled window tables to S3, one file per architecture and split, as a Processing job | Row counts per split reconcile with the verification report | Week 3 |
@@ -183,6 +183,7 @@ Sources: [CIC-YNU-IoTMal dataset page](https://www.unb.ca/cic/datasets/ynu-iot-2
 
 | Date | Change |
 | --- | --- |
+| 2026-10-05 | `fix/split-determinism`: each architecture's family is dealt from its own seed, so a change to one family cannot re-deal another (D2 revised); `SPLIT.md` rows break ties by class name; splits and baseline regenerated, ARM leave-one-out MCC 0.956 to 0.940 from the re-deal alone |
 | 2026-10-05 | `fix/trace-length`: one STRACE row per call, so a binary with `w` rows made `w` calls rather than `w + 19`; the inert rule applied as written sets aside 25 more benign binaries on MIPS, MIPSEL and x86 (D8 revised); a group spanning two malware families is dealt once (D2 revised); splits and baseline regenerated, Baselines status Done |
 | 2026-10-05 | Plan moved into the repository as `docs/plans/plan.md`; pipeline, evaluation protocol, timeline and risks updated for steps 7 to 9 (behaviour-grouped split, inert exclusion, conflict rule, XGBoost baselines, D8 and D9); first-window experiment added; open-decisions checklist folded into Scope |
 | 2026-09-28 | Researcher A and B tracks dropped; timeline by step |
