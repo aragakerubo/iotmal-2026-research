@@ -21,6 +21,12 @@ is the granularity the paper's reproducibility package will cite.
 **Revisit if** a third contributor joins, or a step needs more than one
 commit to review sensibly.
 
+**Revision (2026-10-05).** The code is now written in the repository's
+own checkout on the Studio space, so the patch file is no longer the
+carrier; the branch is. Everything else stands: one step per branch,
+one commit per branch, `make check` green before push, a write-up per
+step, squash-merge by a human. `CLAUDE.md` holds the working agreement.
+
 ## D2: Every split is by binary hash, never by row
 
 Train, validation and test sets are disjoint sets of binaries (SHA-256

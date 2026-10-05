@@ -31,5 +31,6 @@ make install-aws      # on the Studio space: adds boto3 and sagemaker
 
 ## How changes arrive
 
-One branch per step, one commit per branch, delivered as a patch and
-applied with `git am`; see `docs/decisions.md` D1.
+One branch per step, one commit per branch, `make check` green, pushed
+and squash-merged; see `docs/decisions.md` D1 and `CLAUDE.md`, which is
+the working agreement for anyone (or any agent) editing this repository.
