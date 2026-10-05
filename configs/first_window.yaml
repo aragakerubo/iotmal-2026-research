@@ -1,0 +1,35 @@
+# The first-window experiments: how early in a trace the class is named (D8).
+#
+# prefixes:        numbers of initial system calls to keep per binary, one
+#                  feature store and one set of baseline runs per number.
+#                  Each must be between 1 and 20: row N of a binary counts its
+#                  first N calls only while N is at most 20, and after that a
+#                  row is a sliding window that has dropped the earliest calls.
+#                  A binary that made fewer than N calls keeps its whole trace.
+# ablation_prefix: the prefix whose baselines are run a second time with the
+#                  network calls removed from the features; must be one of the
+#                  prefixes.
+# network_calls:   canonical names removed in that run: every socket-family
+#                  call in the vocabulary. sendfile is left in, because it
+#                  also copies between files. The calls that remain still
+#                  reflect the network calls' presence, since a network call
+#                  takes a slot that another call would otherwise fill.
+
+prefixes: [5, 10, 15, 20]
+ablation_prefix: 20
+network_calls:
+  - accept
+  - bind
+  - connect
+  - getsockname
+  - getsockopt
+  - listen
+  - recv
+  - recvfrom
+  - recvmsg
+  - send
+  - sendmsg
+  - sendto
+  - setsockopt
+  - shutdown
+  - socket

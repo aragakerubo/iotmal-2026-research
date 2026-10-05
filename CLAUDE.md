@@ -83,10 +83,11 @@ experiment, leave-one-architecture-out scores the whole held-out
 architecture (D2, D8, D9). The XGBoost baselines in `data/BASELINE.md`
 transfer almost perfectly across architectures, which means the
 dataset's benign class is probably separable by a shortcut. The
-first-window experiment (`feat/first-window`) measured it: each
-binary's first twenty system calls alone match the whole trace on
-every fold, and no first window is shared by a benign and a malware
-binary on any architecture (`data/FIRST_WINDOW.md`).
+first-window experiments (`feat/first-window`,
+`feat/first-window-prefix`) measured it: each binary's first ten system
+calls alone match the whole trace on every fold, the network calls play
+no part, and after five calls every benign binary on an architecture
+has one identical window (`data/FIRST_WINDOW.md`, `docs/dataset_notes.md`).
 
 Open: the device budget and the ARM board, the venue, the semantic
 syscall groups (`configs/syscall_groups.yaml`), the leakage experiment

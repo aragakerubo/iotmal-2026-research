@@ -4,7 +4,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-from iotmal import baseline, dedup, split
+from iotmal import baseline, dedup, first_window, split
 
 VOCAB = ["connect", "execve", "mmap", "read", "socket", "write"]
 ARCHES = ["arm", "mips", "x86"]
@@ -169,9 +169,9 @@ def test_load_feature_store_reads_only_the_named_store(tmp_path, store):
     arm = pl.col("Arch") == "arm"
     first = store.with_columns(pl.lit(20, dtype=store["windows"].dtype).alias("windows"))
     store.filter(arm).write_parquet(tmp_path / "arm_strace.parquet")
-    first.filter(arm).write_parquet(tmp_path / "arm_first_strace.parquet")
+    first.filter(arm).write_parquet(tmp_path / f"arm_{first_window.stem(20)}.parquet")
     assert dedup.load_feature_store(tmp_path).equals(store.filter(arm))
-    assert dedup.load_feature_store(tmp_path, stem="first_strace").equals(first.filter(arm))
+    assert dedup.load_feature_store(tmp_path, stem="first20_strace").equals(first.filter(arm))
     with pytest.raises(FileNotFoundError):
         dedup.load_feature_store(tmp_path, stem="pcap")
 
@@ -198,14 +198,19 @@ def test_first_window_repeats_the_three_experiments_on_the_same_binaries(store, 
     whole = baseline.run(store, assignment, VOCAB, cfg)
     first = baseline.first_window(_first_store(store), assignment, VOCAB, cfg)
     assert first["experiment"].unique().sort().to_list() == sorted(
-        f"first-window {e}" for e in baseline.EXPERIMENTS
+        f"first-20 {e}" for e in baseline.EXPERIMENTS
     )
     assert first["test_n"].to_list() == whole["test_n"].to_list()
-    table = baseline.compare(pl.concat([whole, first]))
+    other = baseline.first_window(_first_store(store), assignment, VOCAB, cfg, label="x")
+    results = pl.concat([whole, first, other])
+    table = baseline.compare(results, ["first-20", "x"])
+    assert table.columns == ["experiment", "held_out", "view", "test_n", "whole", "first-20", "x"]
     assert table.height == whole.height
-    md = baseline.render_markdown(pl.concat([whole, first]))
-    assert "## first-window leave-one-architecture-out" in md
-    assert "| leave-one-architecture-out | arm | group |" in baseline.render_comparison(table)
+    md = baseline.render_markdown(results)
+    assert "## first-20 leave-one-architecture-out" in md and "## x architecture-sanity" in md
+    rendered = baseline.render_comparison(table)
+    assert "| Experiment | Held out | View | Test | whole | first-20 | x |" in rendered
+    assert "| leave-one-architecture-out | arm | group |" in rendered
 
 
 def test_identical_first_windows_carry_no_signal(store, assignment, cfg):
@@ -215,9 +220,26 @@ def test_identical_first_windows_carry_no_signal(store, assignment, cfg):
     assert detection["auroc"].max() == 0.5
 
 
-def test_compare_raises_when_the_two_runs_score_different_binaries(store, assignment, cfg):
+def test_dropping_the_only_separating_calls_removes_the_signal(store, assignment, cfg):
+    # every first window identical except that malware opens a socket and connects
+    first = _first_store(store, same=True).with_columns(
+        *[
+            pl.when(pl.col("MalwareFamily") == "Benign").then(3).otherwise(4).alias(c)
+            for c in ("socket", "connect")
+        ]
+    )
+    with_net = baseline.first_window(first, assignment, VOCAB, cfg)
+    without = baseline.first_window(first, assignment, VOCAB, cfg, drop=("socket", "connect"))
+    detect = ~pl.col("experiment").str.ends_with(baseline.SANITY)
+    assert with_net.filter(detect)["mcc"].min() > 0.9
+    assert without.filter(detect)["mcc"].abs().max() == 0.0
+    with pytest.raises(ValueError):
+        baseline.first_window(first, assignment, VOCAB, cfg, drop=("sokcet",))
+
+
+def test_compare_raises_when_a_run_scores_different_binaries(store, assignment, cfg):
     whole = baseline.run(store, assignment, VOCAB, cfg)
     first = baseline.first_window(_first_store(store), assignment, VOCAB, cfg)
     shifted = first.with_columns(pl.col("test_n") + 1)
     with pytest.raises(ValueError):
-        baseline.compare(pl.concat([whole, shifted]))
+        baseline.compare(pl.concat([whole, shifted]), ["first-20"])
