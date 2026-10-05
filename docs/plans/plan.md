@@ -1,6 +1,6 @@
 # Cross-Architecture IoT Malware Detection Plan
 
-Started 2026-09-20. Last updated 2026-10-05, after `feat/first-window-prefix`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
+Started 2026-09-20. Last updated 2026-10-05, after `fix/threshold`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
 
 ## Research question
 
@@ -96,7 +96,7 @@ Every number in the paper comes from leave-one-architecture-out evaluation on sp
 
 The evaluation unit is the binary (revised 2026-09-26). A model that scores windows gives a binary the mean of its window scores, a model on the per-binary feature store scores the binary directly, and metrics are computed over binaries. Rows per binary range from 3 to 184,253, so a window-level metric would weight one long-running Mirai sample thousands of times more than a short one, and no deployment decides per window. Window-level numbers appear in a secondary table for comparability with the dataset paper. Every detection result is also reported in a group view (added 2026-10-05), in which the binaries that share one exact syscall vector count as a single example with their mean score, because 190 identical x86 Mirai builds would otherwise count 190 times in one test set. The group view answers how many distinct behaviours the model gets right.
 
-Metrics are MCC and macro-F1 as primary, with accuracy, AUROC and the test set's majority share (chance) reported alongside. MCC is chosen because the classes are imbalanced in both directions (benign is about 55 percent of binaries and 20 percent of rows, and the ARM held-out fold is about 92 percent malware once inert binaries are gone). Each neural-network number is the mean and standard deviation over five seeds; the tree baseline runs once with a fixed seed.
+Metrics are MCC and macro-F1 as primary, with accuracy, AUROC and the test set's majority share (chance) reported alongside. MCC, macro-F1 and accuracy are taken at the decision threshold that maximises MCC on the fold's validation binaries, which never include the held-out architecture, and MCC at 0.5 and the chosen threshold are reported beside them (revised 2026-10-05, D9). Because scores can shift on an unseen architecture while the ranking holds, AUROC is read beside MCC on every held-out fold. MCC is chosen because the classes are imbalanced in both directions (benign is about 55 percent of binaries and 20 percent of rows, and the ARM held-out fold is about 92 percent malware once inert binaries are gone). Each neural-network number is the mean and standard deviation over five seeds; the tree baseline runs once with a fixed seed.
 
 The experiments run in a fixed order, because each one validates something the next depends on. The table lists them with what each is expected to show.
 
@@ -184,6 +184,7 @@ Sources: [CIC-YNU-IoTMal dataset page](https://www.unb.ca/cic/datasets/ynu-iot-2
 
 | Date | Change |
 | --- | --- |
+| 2026-10-05 | `fix/threshold`: detection metrics at the threshold that maximises MCC on the fold's validation binaries, MCC at 0.5 and the threshold reported beside them (D9 revised); the rule leaves ARM held out unchanged, because scores shift on an unseen architecture while the ranking transfers |
 | 2026-10-05 | `feat/first-window-prefix`: first-window stores for 5, 10, 15 and 20 calls and a 20-call run without network calls; the class is named by program start-up within ten calls; data-findings row updated; threshold direction chosen (validation-set threshold, for a later `fix/threshold` that revises D9) |
 | 2026-10-05 | `feat/first-window`: first-twenty-call store and the fourth baseline experiment; the first twenty calls separate the classes on every architecture; data-findings row added with the open question it raises; First window status Done |
 | 2026-10-05 | `fix/split-determinism`: each architecture's family is dealt from its own seed, so a change to one family cannot re-deal another (D2 revised); `SPLIT.md` rows break ties by class name; splits and baseline regenerated, ARM leave-one-out MCC 0.956 to 0.940 from the re-deal alone |

@@ -243,3 +243,57 @@ def test_compare_raises_when_a_run_scores_different_binaries(store, assignment, 
     shifted = first.with_columns(pl.col("test_n") + 1)
     with pytest.raises(ValueError):
         baseline.compare(pl.concat([whole, shifted]), ["first-20"])
+
+
+def test_choose_threshold_takes_the_middle_of_a_clean_gap():
+    y = np.array([0, 0, 1, 1])
+    assert baseline.choose_threshold(y, np.array([0.1, 0.6, 0.9, 0.95])) == pytest.approx(0.75)
+    assert baseline.choose_threshold(y, np.array([0.01, 0.02, 0.98, 0.99])) == pytest.approx(0.5)
+
+
+def test_choose_threshold_maximises_mcc_and_breaks_ties_toward_half():
+    # a malware at 0.4 and a benign at 0.6 sit between the classes; cutting at 0.275
+    # or at 0.7 both reach MCC 0.707, and 0.7 is closer to 0.5
+    y = np.array([0, 0, 1, 0, 1, 1])
+    s = np.array([0.1, 0.15, 0.4, 0.6, 0.8, 0.9])
+    assert baseline.choose_threshold(y, s) == pytest.approx(0.7)
+    # without the tie the larger MCC wins whatever its distance from 0.5
+    y = np.array([0, 0, 0, 1, 0, 1, 1])
+    s = np.array([0.1, 0.2, 0.3, 0.6, 0.7, 0.8, 0.9])
+    assert baseline.choose_threshold(y, s) == pytest.approx(0.45)
+    assert baseline.choose_threshold(np.array([1, 1]), np.array([0.2, 0.9])) == 0.5
+    assert baseline.choose_threshold(y, np.full(7, 0.4)) == 0.5
+
+
+def test_choose_threshold_agrees_with_a_brute_force_search():
+    from sklearn.metrics import matthews_corrcoef
+
+    rng = np.random.default_rng(3)
+    for _ in range(20):
+        y = rng.integers(0, 2, size=60)
+        s = np.round(np.clip(rng.normal(0.3 + 0.4 * y, 0.25), 0, 1), 2)
+        t = baseline.choose_threshold(y, s)
+        values = np.unique(s)
+        brute = max(matthews_corrcoef(y, s >= c) for c in (values[:-1] + values[1:]) / 2)
+        assert matthews_corrcoef(y, s >= t) == pytest.approx(brute)
+
+
+def test_metrics_report_mcc_at_the_threshold_and_at_half():
+    y = np.array([0, 0, 1, 1])
+    m = baseline.metrics(y, np.array([0.55, 0.6, 0.8, 0.9]), threshold=0.7)
+    assert m["mcc"] == 1.0 and m["threshold"] == 0.7
+    assert m["mcc_half"] == 0.0
+
+
+def test_the_held_out_architecture_never_moves_its_own_threshold(store, assignment, cfg):
+    # arm's benign binaries take a malware-like profile, which moves arm's test scores
+    arm_benign = (pl.col("Arch") == "arm") & (pl.col("MalwareFamily") == "Benign")
+    malware_like = dict(zip(VOCAB, [20, 1, 25, 3, 20, 2]))
+    shifted = store.with_columns(
+        *[pl.when(arm_benign).then(malware_like[v]).otherwise(pl.col(v)).alias(v) for v in VOCAB]
+    )
+    loao = (pl.col("experiment") == baseline.LOAO) & (pl.col("held_out") == "arm")
+    before = baseline.run(store, assignment, VOCAB, cfg).filter(loao)["threshold"]
+    after = baseline.run(shifted, assignment, VOCAB, cfg).filter(loao)["threshold"]
+    assert before.to_list() == after.to_list()
+    assert 0 < before[0] < 1

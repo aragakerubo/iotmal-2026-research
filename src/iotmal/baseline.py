@@ -40,6 +40,13 @@ view answers "how many distinct behaviours does the model get right",
 which the duplicate-heavy classes (190 identical x86 Mirai builds)
 would otherwise swamp.
 
+Each detection fold is scored at the threshold that maximises MCC on
+its own validation binaries, which for leave-one-architecture-out are
+the training architectures' ``val`` binaries, so the held-out
+architecture never influences its cut-off (D9). MCC at the fixed 0.5
+is reported beside it, because a model whose ranking transfers can
+still have its scores shifted on an unseen architecture.
+
 The model is XGBoost with the parameters in ``configs/baseline.yaml``.
 It is a baseline: fast, strong on tabular counts, and nothing a
 microcontroller runs. The neural models in later steps are compared
@@ -86,7 +93,9 @@ RESULT_COLUMNS = (
     "accuracy",
     "macro_f1",
     "mcc",
+    "mcc_half",
     "auroc",
+    "threshold",
     "best_round",
 )
 
@@ -228,16 +237,50 @@ def fit(
     return model
 
 
-def metrics(y_true: np.ndarray, scores: np.ndarray) -> dict[str, float | None]:
-    """Binary metrics at a 0.5 threshold, plus AUROC when both classes are present."""
-    pred = scores >= 0.5
+def choose_threshold(y_val: np.ndarray, scores: np.ndarray) -> float:
+    """Return the cut-off that maximises MCC on validation binaries (D9).
+
+    Candidates are the midpoints between consecutive distinct scores, so
+    a validation set the model separates perfectly yields the middle of
+    the gap between its classes. Ties go to the candidate closest to
+    0.5. A validation set without both classes, or with one distinct
+    score, gives 0.5.
+    """
+    values = np.unique(scores)
+    if len(np.unique(y_val)) < 2 or len(values) < 2:
+        return 0.5
+    candidates = (values[:-1] + values[1:]) / 2
+    # binaries scoring above each candidate, by class, from cumulative counts
+    index = np.searchsorted(values, scores)
+    pos = np.bincount(index, weights=y_val == 1, minlength=len(values))
+    neg = np.bincount(index, weights=y_val == 0, minlength=len(values))
+    tp = pos.sum() - np.cumsum(pos)[:-1]
+    fp = neg.sum() - np.cumsum(neg)[:-1]
+    fn, tn = pos.sum() - tp, neg.sum() - fp
+    denom = np.sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
+    mcc = np.divide(tp * tn - fp * fn, denom, out=np.zeros_like(denom), where=denom > 0)
+    best = np.flatnonzero(np.isclose(mcc, mcc.max()))
+    return float(candidates[best[np.argmin(np.abs(candidates[best] - 0.5))]])
+
+
+def metrics(
+    y_true: np.ndarray, scores: np.ndarray, threshold: float = 0.5
+) -> dict[str, float | None]:
+    """Binary metrics at ``threshold``, with MCC at 0.5 beside them.
+
+    AUROC is computed when both classes are present; it ignores the
+    threshold.
+    """
+    pred = scores >= threshold
     both = len(np.unique(y_true)) == 2
     return {
         "chance": float(max(y_true.mean(), 1 - y_true.mean())),
         "accuracy": float(accuracy_score(y_true, pred)),
         "macro_f1": float(f1_score(y_true, pred, average="macro", zero_division=0)),
         "mcc": float(matthews_corrcoef(y_true, pred)),
+        "mcc_half": float(matthews_corrcoef(y_true, scores >= 0.5)),
         "auroc": float(roc_auc_score(y_true, scores)) if both else None,
+        "threshold": float(threshold),
     }
 
 
@@ -257,9 +300,18 @@ def collapse_groups(groups: np.ndarray, y_true: np.ndarray, scores: np.ndarray) 
 def score_fold(
     frame: pl.DataFrame, features: np.ndarray, fold: Fold, cfg: BaselineConfig
 ) -> list[dict]:
-    """Fit on the fold and return one result row per view."""
+    """Fit on the fold and return one result row per view.
+
+    The decision threshold is chosen on the fold's validation binaries
+    and applied unchanged to both views of the test set.
+    """
     y = frame[TARGET].to_numpy().astype(int)
     model = fit(cfg, features[fold.train], y[fold.train], features[fold.val], y[fold.val])
+    threshold = (
+        choose_threshold(y[fold.val], model.predict_proba(features[fold.val])[:, 1])
+        if len(fold.val)
+        else 0.5
+    )
     scores = model.predict_proba(features[fold.test])[:, 1]
     y_test = y[fold.test]
     groups = frame[GROUP].to_numpy()[fold.test]
@@ -276,7 +328,7 @@ def score_fold(
                 "test_n": int(len(yv)),
                 "test_benign": int((yv == 0).sum()),
                 "test_malware": int((yv == 1).sum()),
-                **metrics(yv, sv),
+                **metrics(yv, sv, threshold),
                 "best_round": best,
             }
         )
@@ -308,7 +360,9 @@ def architecture_sanity(frame: pl.DataFrame, features: np.ndarray, cfg: Baseline
         "accuracy": float(accuracy_score(y_test, pred)),
         "macro_f1": float(f1_score(y_test, pred, average="macro", zero_division=0)),
         "mcc": float(matthews_corrcoef(y_test, pred)),
+        "mcc_half": None,
         "auroc": None,
+        "threshold": None,
         "best_round": best,
     }
 
@@ -326,7 +380,10 @@ def run(
     for fold in in_architecture_folds(frame) + leave_one_out_folds(frame):
         rows.extend(score_fold(frame, features, fold, cfg))
     rows.append(architecture_sanity(frame, features, cfg))
-    return pl.DataFrame(rows, schema_overrides={"auroc": pl.Float64}).select(RESULT_COLUMNS)
+    return pl.DataFrame(
+        rows,
+        schema_overrides={"auroc": pl.Float64, "mcc_half": pl.Float64, "threshold": pl.Float64},
+    ).select(RESULT_COLUMNS)
 
 
 def first_window(
@@ -411,16 +468,16 @@ def render_markdown(results: pl.DataFrame) -> str:
         out += [
             f"## {experiment}",
             "",
-            "| Held out | View | Train | Test | Benign | Malware | Chance | Accuracy "
-            "| Macro-F1 | MCC | AUROC | Rounds |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Held out | View | Train | Test | Benign | Malware | Chance | Threshold | Accuracy "
+            "| Macro-F1 | MCC | MCC at 0.5 | AUROC | Rounds |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
         for r in part.iter_rows(named=True):
-            auroc = "" if r["auroc"] is None else f"{r['auroc']:.3f}"
             out.append(
                 f"| {r['held_out']} | {r['view']} | {r['train_n']} | {r['test_n']} "
                 f"| {r['test_benign']} | {r['test_malware']} | {r['chance']:.3f} "
-                f"| {r['accuracy']:.3f} | {r['macro_f1']:.3f} | {r['mcc']:.3f} | {auroc} "
+                f"| {_fmt(r['threshold'])} | {r['accuracy']:.3f} | {r['macro_f1']:.3f} "
+                f"| {r['mcc']:.3f} | {_fmt(r['mcc_half'])} | {_fmt(r['auroc'])} "
                 f"| {r['best_round']} |"
             )
         out.append("")

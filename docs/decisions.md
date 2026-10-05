@@ -269,3 +269,20 @@ in one test set and once in the training set of every other fold.
 **Revisit if** a model's `val` behaviour on three architectures proves
 a poor guide to stopping on the fourth; then the stopping rule, not the
 test set, changes.
+
+**Revision (2026-10-05).** Accuracy, macro-F1 and MCC are taken at the
+decision threshold that maximises MCC on the fold's own `val` binaries:
+for leave-one-architecture-out, the training architectures' `val`
+binaries, so the held-out architecture never sets its own cut-off.
+Candidates are the midpoints between consecutive distinct validation
+scores, and ties go to the one closest to 0.5. MCC at the fixed 0.5
+is reported beside it, and the chosen threshold is recorded per fold.
+The change was made because the first-window model ranks every ARM
+binary correctly when ARM is held out (AUROC 1.000) and still scores
+MCC 0 at 0.5, with ARM benign binaries between 0.58 and 0.72. The rule
+does not repair that fold: the training architectures' validation
+binaries are cleanly separated around 0.5, so every chosen threshold
+lies between 0.49 and 0.69 on the leave-one-out folds, and ARM's MCC is
+unchanged. A threshold learned without the held-out architecture cannot
+know that its scores are shifted; the ranking transfers across
+architectures and the score scale does not, which the paper reports.

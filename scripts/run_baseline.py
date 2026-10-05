@@ -38,8 +38,11 @@ every experiment. In-architecture scores one architecture's `test`
 column after training on its `train` column; leave-one-architecture-out
 scores every live binary of the held-out architecture after training on
 the `train` columns of the other three, so its test set is the whole
-architecture, not the `test` column. The `group` view collapses binaries
-with one exact syscall vector into one example with their mean score.
+architecture, not the `test` column. Accuracy, macro-F1 and MCC are taken at
+the threshold that maximises MCC on the fold's validation binaries
+(D9), printed in the Threshold column; MCC at 0.5 stands beside them.
+The `group` view collapses binaries with one exact syscall vector into
+one example with their mean score.
 Chance is the share of the larger class in the test set. The
 architecture-sanity row predicts the architecture itself; accuracy far
 above its chance means the features still carry a sandbox signature.
@@ -84,7 +87,11 @@ def main(source: str | None) -> None:
             f"## whole trace against first-window runs, {name}\n\n"
             + baseline.render_comparison(baseline.compare(results, labels, metric))
             + "\n"
-            for metric, name in (("mcc", "MCC"), ("auroc", "AUROC"))
+            for metric, name in (
+                ("mcc", "MCC at the validation threshold"),
+                ("mcc_half", "MCC at 0.5"),
+                ("auroc", "AUROC"),
+            )
         )
 
     out = ensure_dir(DATA_DIR / "baseline")
