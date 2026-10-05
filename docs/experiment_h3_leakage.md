@@ -1,8 +1,10 @@
 # Experiment H3: leakage from row-level splits
 
-Status: draft, 2026-10-05. Every section marked **Decision** is open
-and waits for the researchers; each lists the options and a
-recommendation. Nothing here is implemented yet.
+Status: decided, 2026-10-05. The researchers took the recommendation
+in every **Decision** section below; D10 records the protocol and
+`feat/leakage` implements it (`configs/leakage.yaml`,
+`iotmal.leakage`). The options are kept as the record of what was
+weighed.
 
 ## The question
 
@@ -61,6 +63,13 @@ indicative only. They show that mid-trace windows sit below the
 ceiling on MIPS, MIPSEL and x86, that the row-random split scores 3 to
 6 MCC points higher there, and that ARM shows no gap. The real
 experiment replaces this table.
+
+**Superseded (2026-10-05).** The full experiment (`data/LEAKAGE.md`)
+did not reproduce the gap. On the capped sample of every live binary,
+mid-trace windows score MCC 0.968 to 0.988 under the behaviour-grouped
+split, and the row-random split is at most 0.5 points above either
+grouped split on MIPS and x86. The check's two row groups were not a
+fair sample of the binaries, and its gap came from that.
 
 ## What earlier decisions already fix
 

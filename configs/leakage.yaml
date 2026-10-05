@@ -1,0 +1,29 @@
+# The H3 leakage experiment (docs/experiment_h3_leakage.md, D10).
+#
+# units:      which rows of a binary a window may be drawn from, by the
+#             position of the row (1 = the binary's first call).
+#               mid - from first_row on; 21 keeps out every row that
+#                     contains a call from the first twenty, so no window
+#                     holds program start-up
+#               all - every row, as the dataset paper used them
+# cap:        rows drawn per binary per unit and seed, uniformly without
+#             replacement; a binary with fewer eligible rows gives them all.
+#             The cap also stops the longest Mirai binaries (up to 184,253
+#             rows) from being most of the data.
+# sensitivity_cap: a smaller cap, run on the first seed only, to show the
+#             gap does not depend on the cap. Its rows are the first
+#             sensitivity_cap rows of the cap draw, so it is nested in it.
+# seeds:      one window sample and one row-random split per seed. The
+#             behaviour-grouped split is data/splits/ and the hash-grouped
+#             split is drawn once with configs/split.yaml's seed, so only
+#             the sample and the row-random split vary with the seed.
+#
+# The split shares (70/10/20) and the model (configs/baseline.yaml) are
+# not repeated here; H3 changes the split and nothing else.
+
+units:
+  mid: {first_row: 21}
+  all: {first_row: 1}
+cap: 100
+sensitivity_cap: 25
+seeds: [0, 1, 2, 3, 4]

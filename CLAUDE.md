@@ -90,8 +90,7 @@ no part, and after five calls every benign binary on an architecture
 has one identical window (`data/FIRST_WINDOW.md`, `docs/dataset_notes.md`).
 
 Open: the device budget and the ARM board, the venue, the semantic
-syscall groups (`configs/syscall_groups.yaml`), the leakage experiment
-spec (`docs/experiment_h3_leakage.md`), and whether the paper's claim
+syscall groups (`configs/syscall_groups.yaml`), and whether the paper's claim
 is the lightweight model or the benchmark critique. Do not settle an
 open question on your own; write the options into the write-up and
 ask.

@@ -32,12 +32,12 @@ import polars as pl
 import pyarrow.parquet as pq
 import yaml
 
-from iotmal import canonical
+from iotmal import canonical, rows
 from iotmal.dedup import ARCH, HASH, LABEL, WINDOWS
 from iotmal.paths import CONFIG_DIR
 from iotmal.split import WINDOW
 
-POSITION = "position"
+POSITION = rows.POSITION
 
 
 def stem(calls: int) -> str:
@@ -75,8 +75,8 @@ def first_rows(
 ) -> dict[int, pl.DataFrame]:
     """One table per prefix N: shared columns, ``windows`` = calls counted, canonical counts.
 
-    Each row's position within its binary is counted across batches, by
-    carrying every hash's row count forward. A batch keeps the rows at
+    Each row's position within its binary comes from
+    ``iotmal.rows.positioned``. A batch keeps the rows at
     the prefix positions and, per hash, its last row before the longest
     prefix, since a short binary's last row can only be known once its
     rows stop. For each N, of the kept rows at or before position N, the
@@ -85,34 +85,22 @@ def first_rows(
     Counts are ``Int64`` to match the whole-trace store.
     """
     longest = max(prefixes)
-    seen = pl.DataFrame(schema={HASH: pl.String, "offset": pl.Int64})
     parts = []
-    for batch in parquet.iter_batches(batch_size=batch_size):
-        frame = (
-            pl.from_arrow(batch)
-            .join(seen, on=HASH, how="left", maintain_order="left")
-            .with_columns(
-                (pl.int_range(1, pl.len() + 1).over(HASH) + pl.col("offset").fill_null(0)).alias(
-                    POSITION
-                )
-            )
-        )
+    for frame in rows.positioned(parquet, batch_size):
         last = pl.col(POSITION) == pl.col(POSITION).max().over(HASH)
         kept = frame.filter(
             pl.col(POSITION).is_in(prefixes) | (last & (pl.col(POSITION) < longest))
         )
         parts.append(canonical.canonicalize(kept, mapping, vocabulary).with_columns(kept[POSITION]))
-        counts = frame.group_by(HASH).agg(pl.col(POSITION).max().alias("offset"))
-        seen = pl.concat([seen.join(counts, on=HASH, how="anti"), counts])
     schema = {HASH: pl.String, LABEL: pl.String, ARCH: pl.String, WINDOWS: pl.UInt32}
     if not parts:
         empty = pl.DataFrame(schema={**schema, **{v: pl.Int64 for v in vocabulary}})
         return {n: empty for n in prefixes}
-    rows = pl.concat(parts)
+    kept_rows = pl.concat(parts)
     # positions are unique within a hash, so each filter keeps one row per
     # binary, in file order
     return {
-        n: rows.filter(pl.col(POSITION) <= n)
+        n: kept_rows.filter(pl.col(POSITION) <= n)
         .filter(pl.col(POSITION) == pl.col(POSITION).max().over(HASH))
         .select(
             pl.col(HASH, LABEL, ARCH),
