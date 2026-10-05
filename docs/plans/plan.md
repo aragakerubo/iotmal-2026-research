@@ -1,6 +1,6 @@
 # Cross-Architecture IoT Malware Detection Plan
 
-Started 2026-09-20. Last updated 2026-10-05, after `fix/threshold`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
+Started 2026-09-20. Last updated 2026-10-05, after `docs/h3-leakage-spec`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
 
 ## Research question
 
@@ -184,6 +184,7 @@ Sources: [CIC-YNU-IoTMal dataset page](https://www.unb.ca/cic/datasets/ynu-iot-2
 
 | Date | Change |
 | --- | --- |
+| 2026-10-05 | `docs/h3-leakage-spec`: `docs/experiment_h3_leakage.md` drafted; the per-binary detection task is at the ceiling, so H3 moves to single mid-trace windows, where a feasibility check found row-random splits 3 to 6 MCC points above grouped ones on MIPS, MIPSEL and x86; six design decisions left open |
 | 2026-10-05 | `fix/threshold`: detection metrics at the threshold that maximises MCC on the fold's validation binaries, MCC at 0.5 and the threshold reported beside them (D9 revised); the rule leaves ARM held out unchanged, because scores shift on an unseen architecture while the ranking transfers |
 | 2026-10-05 | `feat/first-window-prefix`: first-window stores for 5, 10, 15 and 20 calls and a 20-call run without network calls; the class is named by program start-up within ten calls; data-findings row updated; threshold direction chosen (validation-set threshold, for a later `fix/threshold` that revises D9) |
 | 2026-10-05 | `feat/first-window`: first-twenty-call store and the fourth baseline experiment; the first twenty calls separate the classes on every architecture; data-findings row added with the open question it raises; First window status Done |
