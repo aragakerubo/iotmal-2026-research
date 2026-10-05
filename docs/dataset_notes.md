@@ -114,19 +114,29 @@ the benign class is almost entirely distinct (2,617 of 2,617 on MIPS)
 and the largest identical Mirai group is 190 (x86). D8 excludes inert
 binaries and records the counts.
 
-### The first twenty calls
+### The first calls
 
-`data/binaries/<arch>_first_strace.parquet` holds each binary's
-twentieth row, which counts its first twenty calls, or its last row
-when it made fewer; 291 live binaries did, all malware. On every
-architecture no first window is shared by a benign and a malware binary
-(`data/FIRST_WINDOW.md`). Live benign binaries have between 15 (x86)
-and 136 (MIPS, MIPSEL) distinct first windows, the commonest on x86
-covering 1,030 binaries: `execve`, two `open` calls for the shared
-libraries, `mmap`, `mprotect`, `brk`, `stat`, `fcntl`, `ioctl`, `read`
-and the thread-setup calls. The commonest x86 Mirai first windows, 297
-and 191 binaries, contain no `open` and already include `socket`,
-`connect` and `getsockname`.
+`data/binaries/<arch>_first<N>_strace.parquet` holds, for N of 5, 10,
+15 and 20 (`configs/first_window.yaml`), each binary's row N, which
+counts its first N calls, or its last row when it made fewer; at N = 20,
+291 live binaries made fewer, all malware. `data/FIRST_WINDOW.md`
+counts the distinct first windows per class.
+
+At five calls, every live benign binary on an architecture has one and
+the same window. On MIPS, MIPSEL and x86 it is `execve`,
+`set_thread_area`, `set_tid_address` and two `brk`; on ARM it is
+`execve`, two `open`, `set_thread_area` and `set_tid_address`. No
+malware binary shares it on ARM, MIPS or x86, and one does on MIPSEL.
+The commonest malware starts are `execve`, `readlink` and two
+`cacheflush` with an `mmap` on MIPS and MIPSEL (490 and 471 binaries),
+`execve`, two `mmap`, `mprotect` and `readlink` on x86 (586), and
+`execve`, two `brk`, `ioctl` and `set_thread_area` on ARM (962). The
+pattern is consistent with the benign programs sharing one C library's
+start-up code and the malware being built differently; which libraries
+these are has not been checked. From ten calls on, no window is shared
+by the classes on any architecture, and at twenty the benign windows
+diverge into 15 (x86) to 136 (MIPS, MIPSEL) variants of the dynamic
+loader opening and mapping the shared libraries.
 
 ### Binaries, not rows
 

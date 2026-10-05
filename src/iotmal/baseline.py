@@ -20,13 +20,14 @@ side:
   this is far above chance, the canonical vocabulary (D6) still lets a
   model tell architectures apart, and a cross-architecture detector may
   be learning "which sandbox" rather than "which behaviour".
-* **first-window**: the three experiments above, run again on the
-  first-window store (``iotmal.first_window``), where each binary is
-  represented by its first twenty system calls only, or its whole trace
-  when it made fewer. The split, the
-  folds and the model are unchanged, so the gap to the whole-trace
-  numbers is how much the class depends on behaviour past the loader
-  prologue (D8).
+* **first-window**: the three experiments above, run again on each
+  first-N store (``iotmal.first_window``), where each binary is
+  represented by its first N system calls only, or its whole trace when
+  it made fewer, and once more on one prefix with the network calls
+  removed from the features. The split, the folds and the model are
+  unchanged, so the gap to the whole-trace numbers is how much the class
+  depends on behaviour past the prologue (D8), and the prefix at which
+  the gap closes is how early the class is named.
 
 Every binary labelled ``test`` by the split is unseen in every
 experiment, so the in-architecture and leave-one-out numbers for one
@@ -67,9 +68,10 @@ SPLIT = "split"
 IN_ARCH = "in-architecture"
 LOAO = "leave-one-architecture-out"
 SANITY = "architecture-sanity"
-FIRST_WINDOW = "first-window"
+FIRST_WINDOW = "first"
+"""Label stem of the first-window runs: ``first-20``, ``first-20-no-network``."""
 EXPERIMENTS = (IN_ARCH, LOAO, SANITY)
-"""The three evaluations; the first-window experiment repeats each under a prefixed name."""
+"""The three evaluations; each first-window run repeats them under a prefixed name."""
 VIEWS = ("binary", "group")
 FEATURE_KINDS = ("profile", "log_counts")
 RESULT_COLUMNS = (
@@ -332,45 +334,55 @@ def first_window(
     assignment: pl.DataFrame,
     vocabulary: list[str],
     cfg: BaselineConfig,
+    calls: int = WINDOW,
+    drop: tuple[str, ...] = (),
+    label: str | None = None,
 ) -> pl.DataFrame:
-    """Run the three experiments on the first-window store under prefixed experiment names.
+    """Run the three experiments on a first-``calls`` store under prefixed experiment names.
 
-    ``first`` must describe at most the first twenty calls of each
-    binary. The check exists because the whole-trace store has the same
-    schema, and passing it here by mistake would produce a second copy of
-    the whole-trace results under the first-window name.
+    The prefix is ``label``, by default ``first-<calls>``. ``first`` must
+    describe at most ``calls`` calls of each binary. The check exists
+    because every store has the same schema, and passing the wrong one
+    would produce another store's results under this name. ``drop``
+    removes calls from the features; a name outside the vocabulary
+    raises, so a misspelt call cannot leave the features unchanged.
     """
-    if (first["windows"] > WINDOW).any():
-        raise ValueError(f"first-window store has binaries with more than {WINDOW} calls")
-    results = run(first, assignment, vocabulary, cfg)
-    return results.with_columns(
-        (pl.lit(f"{FIRST_WINDOW} ") + pl.col("experiment")).alias("experiment")
-    )
+    if (first["windows"] > calls).any():
+        raise ValueError(f"first-window store has binaries with more than {calls} calls")
+    unknown = set(drop) - set(vocabulary)
+    if unknown:
+        raise ValueError(f"cannot drop calls outside the vocabulary: {sorted(unknown)}")
+    kept = [v for v in vocabulary if v not in set(drop)]
+    results = run(first, assignment, kept, cfg)
+    prefix = f"{label or f'{FIRST_WINDOW}-{calls}'} "
+    return results.with_columns((pl.lit(prefix) + pl.col("experiment")).alias("experiment"))
 
 
-def compare(results: pl.DataFrame) -> pl.DataFrame:
-    """Whole-trace against first-window, one row per experiment, held-out architecture and view.
+def compare(results: pl.DataFrame, labels: list[str], metric: str = "mcc") -> pl.DataFrame:
+    """One ``metric`` per run, side by side: the whole trace, then each labelled run.
 
-    Both runs must score the same binaries, since only the features
-    differ; a fold whose test count differs between them raises.
+    One row per experiment, held-out architecture and view. Every run
+    must score the same binaries, since only the features differ; a fold
+    whose test count differs from the whole trace's raises.
     """
     keys = ["experiment", "held_out", "view"]
-    scores = ["accuracy", "mcc", "auroc"]
-    whole = results.filter(pl.col("experiment").is_in(list(EXPERIMENTS)))
-    first = results.filter(pl.col("experiment").str.starts_with(f"{FIRST_WINDOW} ")).with_columns(
-        pl.col("experiment").str.strip_prefix(f"{FIRST_WINDOW} ")
+    table = results.filter(pl.col("experiment").is_in(list(EXPERIMENTS))).select(
+        *keys, "test_n", pl.col(metric).alias("whole")
     )
-    joined = whole.select(*keys, "test_n", *scores).join(
-        first.select(*keys, "test_n", *scores), on=keys, how="inner", suffix="_first"
-    )
-    mismatched = joined.filter(pl.col("test_n") != pl.col("test_n_first"))
-    if not mismatched.is_empty():
-        raise ValueError(f"{mismatched.height} folds score different binaries in the two runs")
-    return joined.select(
-        *keys,
-        "test_n",
-        *[c for m in scores for c in (pl.col(m).alias(f"{m}_whole"), pl.col(f"{m}_first"))],
-    )
+    for label in labels:
+        run_ = results.filter(pl.col("experiment").str.starts_with(f"{label} ")).select(
+            pl.col("experiment").str.strip_prefix(f"{label} "),
+            "held_out",
+            "view",
+            pl.col("test_n").alias("test_n_run"),
+            pl.col(metric).alias(label),
+        )
+        table = table.join(run_, on=keys, how="inner")
+        mismatched = table.filter(pl.col("test_n") != pl.col("test_n_run"))
+        if not mismatched.is_empty():
+            raise ValueError(f"{mismatched.height} folds of {label} score different binaries")
+        table = table.drop("test_n_run")
+    return table
 
 
 def _fmt(x: float | None) -> str:
@@ -379,28 +391,23 @@ def _fmt(x: float | None) -> str:
 
 
 def render_comparison(table: pl.DataFrame) -> str:
-    """Render the comparison as one markdown table."""
+    """Render a ``compare`` table as markdown, one column per run."""
+    runs = table.columns[4:]
     out = [
-        "| Experiment | Held out | View | Test | Accuracy whole | Accuracy first "
-        "| MCC whole | MCC first | AUROC whole | AUROC first |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Experiment | Held out | View | Test | " + " | ".join(runs) + " |",
+        "| --- | --- | --- | --- | " + " | ".join("---" for _ in runs) + " |",
     ]
     for r in table.iter_rows(named=True):
         cells = [r["experiment"], r["held_out"], r["view"], str(r["test_n"])]
-        cells += [
-            _fmt(r[f"{m}_{s}"]) for m in ("accuracy", "mcc", "auroc") for s in ("whole", "first")
-        ]
-        out.append("| " + " | ".join(cells) + " |")
+        out.append("| " + " | ".join(cells + [_fmt(r[c]) for c in runs]) + " |")
     return "\n".join(out) + "\n"
 
 
 def render_markdown(results: pl.DataFrame) -> str:
-    """One table per experiment; the first-window repeats follow the three originals."""
+    """One table per experiment, in the order the results list them."""
     out = []
-    for experiment in [*EXPERIMENTS, *(f"{FIRST_WINDOW} {e}" for e in EXPERIMENTS)]:
+    for experiment in results["experiment"].unique(maintain_order=True).to_list():
         part = results.filter(pl.col("experiment") == experiment)
-        if part.is_empty():
-            continue
         out += [
             f"## {experiment}",
             "",

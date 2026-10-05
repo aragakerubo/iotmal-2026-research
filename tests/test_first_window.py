@@ -6,6 +6,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from iotmal import canonical, dedup, first_window
+from iotmal.paths import DATA_DIR
 
 VOCAB = ["mmap", "read", "write"]
 
@@ -41,9 +42,10 @@ def _binary(hash_, label, rows):
 ROWS = _binary("a", "Benign", 25) + _binary("b", "Mirai", 3) + _binary("c", "Mirai", 22)
 
 
-def _first(tmp_path, mapping, rows=ROWS, batch_size=1000):
+def _first(tmp_path, mapping, rows=ROWS, batch_size=1000, prefixes=(20,)):
     parquet = _file(tmp_path, rows, batch_size)
-    return first_window.first_rows(parquet, mapping, VOCAB, batch_size=batch_size)
+    out = first_window.first_rows(parquet, mapping, VOCAB, prefixes, batch_size=batch_size)
+    return out if len(prefixes) > 1 else out[prefixes[0]]
 
 
 def test_keeps_the_twentieth_row_in_file_order(tmp_path, mapping):
@@ -75,12 +77,47 @@ def test_aliases_are_folded(tmp_path, mapping):
 
 def test_schema_matches_the_whole_trace_store(tmp_path, mapping):
     parquet = _file(tmp_path, ROWS, 1000)
-    first = first_window.first_rows(parquet, mapping, VOCAB)
+    first = first_window.first_rows(parquet, mapping, VOCAB)[20]
     whole = dedup.aggregate_binaries(parquet, mapping, VOCAB)
     assert first.schema == whole.schema
 
 
 def test_an_empty_file_gives_an_empty_store_with_the_schema(tmp_path, mapping):
-    out = first_window.first_rows(_file(tmp_path, [], 3), mapping, VOCAB)
+    out = first_window.first_rows(_file(tmp_path, [], 3), mapping, VOCAB, (5, 20))
+    assert set(out) == {5, 20}
+    out = out[20]
     assert out.is_empty()
     assert out.columns == ["Hash", "MalwareFamily", "Arch", "windows", *VOCAB]
+
+
+@pytest.mark.parametrize("batch_size", [4, 7, 26, 1000])
+def test_every_prefix_comes_from_one_pass(tmp_path, mapping, batch_size):
+    rows = ROWS + _binary("d", "Mirai", 7)
+    out = _first(tmp_path, mapping, rows, batch_size, prefixes=(5, 10, 20))
+    assert out[5]["read"].to_list() == [5, 3, 5, 5]
+    assert out[10]["read"].to_list() == [10, 3, 10, 7]
+    assert out[20]["read"].to_list() == [20, 3, 20, 7]
+    assert out[10]["windows"].to_list() == [10, 3, 10, 7]
+
+
+def test_config_loads_and_checks_its_prefixes(tmp_path):
+    cfg = first_window.FirstWindowConfig.load()
+    assert cfg.prefixes == tuple(sorted(cfg.prefixes)) and max(cfg.prefixes) <= 20
+    assert cfg.ablation_prefix in cfg.prefixes
+    for body in (
+        "prefixes: [5, 21]\nablation_prefix: 5\n",
+        "prefixes: [0, 5]\nablation_prefix: 5\n",
+        "prefixes: [5, 10]\nablation_prefix: 20\n",
+    ):
+        bad = tmp_path / "f.yaml"
+        bad.write_text(body)
+        with pytest.raises(ValueError):
+            first_window.FirstWindowConfig.load(bad)
+
+
+def test_the_network_calls_are_socket_calls_of_the_vocabulary():
+    cfg = first_window.FirstWindowConfig.load()
+    vocabulary = set(pl.read_csv(DATA_DIR / "syscall_vocabulary.csv")["canonical"])
+    assert set(cfg.network_calls) <= vocabulary
+    assert {"socket", "connect", "getsockname"} <= set(cfg.network_calls)
+    assert "sendfile" not in cfg.network_calls
