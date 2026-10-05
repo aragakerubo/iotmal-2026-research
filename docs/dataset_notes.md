@@ -72,26 +72,43 @@ every file, and the number of binaries that straddle a row-group
 boundary is always `row groups minus one`, so the groups are plain
 chunks of a file that was already ordered by binary.
 
-### Windows overlap by construction
+### Rows grow, then slide
 
-Each STRACE row counts the previous twenty calls and there is one row
-per call from the twentieth onward, so a binary with `w` windows has a
-trace of `w + 19` calls, and consecutive rows share nineteen of their
-twenty calls. Adjacent rows are 95 percent identical before any model
-sees them, which is why a row-level random split measures memorisation:
-a test row's near-twin is almost always in the training set. ARM's
-median of 18 windows is a trace of 37 calls.
+There is one STRACE row per system call. Row `i` of a binary counts
+its first `i` calls while `i` is at most twenty, and from row twenty on
+it counts the twenty calls ending at call `i`, so a binary with `w`
+rows made `w` calls. The first row of every binary on every
+architecture is the single call `execve`. Checked on 2026-10-05 in two
+ways: in the first row group of the MIPS and x86 files, row `i` of
+every binary sums to `i` up to twenty and to twenty after; and in the
+per-binary feature store, each binary's summed vector totals
+`w(w+1)/2` when `w` is below twenty and `20w - 190` otherwise, exactly
+for 17,607 of 17,627 binaries and one short for the other 20, which
+probably lost a call to a dropped fragment column (D6). An earlier
+version of these notes said the rows start at the twentieth call,
+which made every trace nineteen calls too long; `split.trace_length`
+and the inert rule (D8) used that arithmetic until `fix/trace-length`.
+
+From row twenty on, consecutive rows share nineteen of their twenty
+calls, so adjacent rows are 95 percent identical before any model sees
+them, which is why a row-level random split measures memorisation: a
+test row's near-twin is almost always in the training set. A summed
+vector in the feature store counts each call once for every row it
+appears in, which is twenty times for every call but the last nineteen,
+so it is close to twenty times the call counts and its proportions are
+close to the call proportions. ARM's median of 18 rows is a trace of 18
+calls: the median ARM binary never fills one twenty-call window.
 
 ### Inert executions on ARM
 
 The near-duplicate scan (`data/DEDUP.md`) found that 1,687 of ARM's
 1,980 benign binaries share one summed syscall vector and 560 of its
-2,795 Mirai binaries share another. The benign one is 16 windows, a
-trace of about 35 calls, consisting of `execve`, the loader's `open`,
+2,795 Mirai binaries share another. The benign one is 16 rows, a
+trace of 16 calls, consisting of `execve`, the loader's `open`,
 `fstat`, `mmap`, `mprotect`, `close`, `fcntl`, `set_thread_area` and
 `set_tid_address`, one `writev` and `exit_group`: a dynamically linked
 program that failed at startup and printed an error. The Mirai one is
-4 windows, about 23 calls: `execve`, `getpid`, `writev`, `exit_group`,
+4 rows and 4 calls: `execve`, `getpid`, `writev`, `exit_group`,
 a static binary that printed and quit. On the other three architectures
 the benign class is almost entirely distinct (2,617 of 2,617 on MIPS)
 and the largest identical Mirai group is 190 (x86). D8 excludes inert

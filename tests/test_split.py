@@ -1,5 +1,7 @@
 """Groups never cross a split, inert traces are set aside, and the deal is reproducible."""
 
+from dataclasses import replace
+
 import polars as pl
 import pytest
 
@@ -38,9 +40,20 @@ def test_config_loads_and_checks_shares(cfg):
     assert "Unknown" in cfg.drop_labels
 
 
-def test_trace_length_is_windows_plus_nineteen():
+def test_trace_length_is_one_call_per_row():
     frame = pl.DataFrame({"windows": [1, 16, 4]})
-    assert frame.select(split.trace_length(pl.col("windows")))["windows"].to_list() == [20, 35, 23]
+    assert frame.select(split.trace_length(pl.col("windows")))["windows"].to_list() == [1, 16, 4]
+
+
+def test_a_trace_of_fifty_calls_without_network_is_inert(cfg):
+    # 50 rows is 50 calls, under the 64-call threshold; the old w + 19 arithmetic
+    # read it as 69 calls and kept it live
+    rows = [
+        ("a", "Benign", "mips", 50, 0, 20, 300, 100, 0, 200),
+        ("b", "Benign", "mips", 64, 0, 20, 300, 100, 0, 200),  # at the threshold: live
+    ]
+    out = split.mark_inert(_signed(rows), cfg)
+    assert out["inert"].to_list() == [True, False]
 
 
 def test_inert_is_short_and_without_network_calls(cfg):
@@ -157,3 +170,16 @@ def test_the_same_signature_on_two_architectures_is_two_groups(cfg):
     out = split.assign(_signed(rows), cfg)
     assert out["group"].n_unique() == 2
     split.check(out)
+
+
+def test_a_trace_shared_by_two_malware_families_lands_on_one_side(cfg):
+    # ten Mirai and one Generic binary with one trace, beside distinct traces of each
+    shared = [(f"s{i}", "Mirai", "x86", 300, 1, 1, 5, 5, 1, 5) for i in range(10)]
+    shared.append(("sg", "Generic", "x86", 300, 1, 1, 5, 5, 1, 5))
+    mirai = [(f"m{i}", "Mirai", "x86", 400 + i, 1, 1, i, 2, 1, 3) for i in range(30)]
+    generic = [(f"g{i}", "Generic", "x86", 400 + i, 1, 1, 9, i, 1, 3) for i in range(10)]
+    signed = _signed(shared + mirai + generic)
+    for seed in range(20):
+        out = split.assign(signed, replace(cfg, seed=seed))
+        split.check(out)
+        assert out.filter(pl.col("Hash").str.starts_with("s"))["split"].n_unique() == 1
