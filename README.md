@@ -15,7 +15,7 @@ dataset with hash-grouped, leave-one-architecture-out splits.
 | `jobs/` | SageMaker job launchers |
 | `configs/` | YAML: syscall mappings, sweep definitions |
 | `data/` | Small committed artifacts: manifests, column inventories, split files |
-| `docs/` | `decisions.md` (the D-numbers), dataset notes, experiment specs |
+| `docs/` | `decisions.md` (the D-numbers), dataset notes, experiment specs; `plans/` holds the plan of record and each week's closeout |
 
 Raw data is not committed. It lives in the project bucket under
 `raw/Yokohama/`.
