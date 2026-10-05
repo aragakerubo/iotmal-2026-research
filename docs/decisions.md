@@ -68,6 +68,15 @@ Generic binary that share one x86 trace were dealt separately, once in
 each family; they agreed by chance until the inert correction in D8
 shifted the random draws, after which the check refused the split.
 
+**Revision (2026-10-05, second).** Each architecture's family is dealt
+with its own random generator, seeded from the configured seed and a
+CRC-32 of `arch/family`. Until now every family drew from one stream in
+the order the families first appeared, so a change to one family
+re-dealt the families after it. Regenerating the split under this rule
+re-dealt every family once more. Leave-one-architecture-out MCC on ARM
+moved from 0.956 to 0.940 on the same test binaries, which puts the
+split's own draw-to-draw variation on ARM at about two MCC points.
+
 ## D3: STRACE and PCAP are in scope; SAR is not
 
 The features come from the syscall-window tables and the network-window

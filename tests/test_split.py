@@ -183,3 +183,36 @@ def test_a_trace_shared_by_two_malware_families_lands_on_one_side(cfg):
         out = split.assign(signed, replace(cfg, seed=seed))
         split.check(out)
         assert out.filter(pl.col("Hash").str.starts_with("s"))["split"].n_unique() == 1
+
+
+def test_changing_one_family_leaves_every_other_family_dealt_the_same(cfg):
+    mirai = [(f"m{i}", "Mirai", "x86", 100 + i, 1, 1, i, 2, 1, 3) for i in range(40)]
+    gafgyt = [(f"g{i}", "Gafgyt", "x86", 100 + i, 1, 1, 9, i, 1, 3) for i in range(20)]
+    before = split.assign(_signed(mirai + gafgyt), cfg)
+    # drop five Mirai binaries; Mirai is dealt first, so a shared random
+    # stream would hand Gafgyt different draws
+    after = split.assign(_signed(mirai[5:] + gafgyt), cfg)
+    pick = pl.col("MalwareFamily") == "Gafgyt"
+    assert before.filter(pick).equals(after.filter(pick))
+
+
+def test_family_rng_is_stable_and_distinct_per_family():
+    a = split.family_rng(7, "x86", "Mirai").integers(0, 1 << 30, size=4).tolist()
+    assert a == split.family_rng(7, "x86", "Mirai").integers(0, 1 << 30, size=4).tolist()
+    assert a != split.family_rng(7, "x86", "Gafgyt").integers(0, 1 << 30, size=4).tolist()
+    assert a != split.family_rng(8, "x86", "Mirai").integers(0, 1 << 30, size=4).tolist()
+
+
+def test_summary_breaks_ties_by_class_name():
+    assignment = pl.DataFrame(
+        {
+            "Hash": ["a", "b", "c", "d"],
+            "MalwareFamily": ["Generic", "Gafgyt", "Generic", "Gafgyt"],
+            "Arch": ["x86"] * 4,
+            "group": ["g1", "g2", "g3", "g4"],
+            "inert": [False] * 4,
+            "split": ["train", "train", "test", "test"],
+        }
+    )
+    for frame in (assignment, assignment.reverse()):
+        assert split.summary(frame)["MalwareFamily"].to_list() == ["Gafgyt", "Generic"]
