@@ -206,3 +206,35 @@ experiment list measures this.
 **Revisit if** a repaired ARM run of the dataset is released, or if
 the first-window baseline shows the threshold of 64 calls cuts into
 binaries that did run.
+## D9: One evaluation protocol for every model, with the whole held-out architecture as the test set
+
+Every model, from the XGBoost reference in `iotmal.baseline` to the
+neural models that follow, is scored under the same three experiments
+on the per-binary unit. In-architecture trains on one architecture's
+`train` binaries, stops early on its `val` binaries and scores its
+`test` binaries. Leave-one-architecture-out trains on the `train`
+binaries of three architectures, stops early on their `val` binaries,
+and scores every live binary of the fourth. Architecture-sanity trains
+a classifier to name the architecture from the same features and
+reports its accuracy against the majority share. Each detection fold
+is reported per binary and per behaviour group, where binaries with
+one exact syscall vector count once with their mean score. The
+metrics are accuracy, macro-F1, MCC and AUROC, with the test set's
+majority share printed beside them as chance.
+
+**Why.** A binary the split labels `test` is unseen in every
+experiment, so the in-architecture and cross-architecture numbers for
+one architecture are scored on populations that overlap and the gap
+between them is the paper's result rather than an artefact of
+different test sets. Scoring the whole held-out architecture rather
+than its `test` column is what makes the ARM fold usable: ARM has 150
+live benign binaries in total (D8), and a fifth of them would not
+support an estimate. Training on the other architectures' `train` and
+`val` rows only, rather than on everything, costs about a fifth of the
+training data and buys the comparability above. The group view exists
+because 190 identical x86 Mirai builds would otherwise count 190 times
+in one test set and once in the training set of every other fold.
+
+**Revisit if** a model's `val` behaviour on three architectures proves
+a poor guide to stopping on the fourth; then the stopping rule, not the
+test set, changes.

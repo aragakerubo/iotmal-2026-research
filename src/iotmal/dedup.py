@@ -26,11 +26,15 @@ Signatures:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import polars as pl
 import pyarrow.parquet as pq
+from pyarrow import fs as pafs
 
 from iotmal import canonical
 from iotmal.canonical import SHARED
+from iotmal.paths import DATA_DIR
 
 HASH, LABEL, ARCH = SHARED
 WINDOWS = "windows"
@@ -74,6 +78,27 @@ def aggregate_binaries(
         .group_by(HASH, LABEL, ARCH, maintain_order=True)
         .agg(pl.col(WINDOWS).sum(), *[pl.col(v).sum() for v in vocabulary])
     )
+
+
+def load_feature_store(source: str | Path | None = None) -> pl.DataFrame:
+    """Concatenate the per-architecture feature-store files from a directory or S3 prefix.
+
+    ``None`` reads ``data/binaries/``; a local path or an ``s3://`` prefix
+    reads every ``*_strace.parquet`` under it, in path order.
+    """
+    if source is None or not str(source).startswith("s3://"):
+        files = sorted(Path(source or DATA_DIR / "binaries").glob("*_strace.parquet"))
+        if not files:
+            raise FileNotFoundError(f"no *_strace.parquet under {source or DATA_DIR / 'binaries'}")
+        return pl.concat([pl.read_parquet(f) for f in files])
+    filesystem, root = pafs.FileSystem.from_uri(str(source))
+    infos = filesystem.get_file_info(pafs.FileSelector(root))
+    frames = []
+    for info in sorted(infos, key=lambda i: i.path):
+        if info.path.endswith("_strace.parquet"):
+            with filesystem.open_input_file(info.path) as handle:
+                frames.append(pl.read_parquet(handle))
+    return pl.concat(frames)
 
 
 def add_signatures(binaries: pl.DataFrame, vocabulary: list[str]) -> pl.DataFrame:

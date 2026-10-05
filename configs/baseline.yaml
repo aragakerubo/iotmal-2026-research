@@ -1,0 +1,25 @@
+# The gradient-boosted-tree baseline on the per-binary feature store.
+#
+# seed:      fixed for the booster and for anything shuffled.
+# features:  how one binary's 132 summed canonical counts become a vector.
+#              profile    - each count divided by the trace's total count,
+#                           plus the log of the trace length; the vector
+#                           says what the program did, not for how long
+#              log_counts - log1p of each raw count; length stays in
+# early_stopping_rounds: boosting stops when the validation log-loss has
+#            not improved for this many rounds, and the best round is kept.
+# xgboost:   passed to XGBClassifier unchanged. Shallow trees and a modest
+#            round count, because the feature store has about 11,000 live
+#            rows and the point of the baseline is a reference, not a record.
+
+seed: 20260922
+features: profile
+early_stopping_rounds: 30
+xgboost:
+  n_estimators: 400
+  max_depth: 6
+  learning_rate: 0.1
+  subsample: 0.8
+  colsample_bytree: 0.8
+  min_child_weight: 1
+  tree_method: hist
