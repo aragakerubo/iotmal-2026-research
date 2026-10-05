@@ -20,6 +20,13 @@ side:
   this is far above chance, the canonical vocabulary (D6) still lets a
   model tell architectures apart, and a cross-architecture detector may
   be learning "which sandbox" rather than "which behaviour".
+* **first-window**: the three experiments above, run again on the
+  first-window store (``iotmal.first_window``), where each binary is
+  represented by its first twenty system calls only, or its whole trace
+  when it made fewer. The split, the
+  folds and the model are unchanged, so the gap to the whole-trace
+  numbers is how much the class depends on behaviour past the loader
+  prologue (D8).
 
 Every binary labelled ``test`` by the split is unseen in every
 experiment, so the in-architecture and leave-one-out numbers for one
@@ -51,7 +58,7 @@ from xgboost import XGBClassifier
 
 from iotmal.canonical import SHARED
 from iotmal.paths import CONFIG_DIR, DATA_DIR
-from iotmal.split import BENIGN, SPLITS, trace_length
+from iotmal.split import BENIGN, SPLITS, WINDOW, trace_length
 
 HASH, LABEL, ARCH = SHARED
 TARGET = "is_malware"
@@ -60,6 +67,9 @@ SPLIT = "split"
 IN_ARCH = "in-architecture"
 LOAO = "leave-one-architecture-out"
 SANITY = "architecture-sanity"
+FIRST_WINDOW = "first-window"
+EXPERIMENTS = (IN_ARCH, LOAO, SANITY)
+"""The three evaluations; the first-window experiment repeats each under a prefixed name."""
 VIEWS = ("binary", "group")
 FEATURE_KINDS = ("profile", "log_counts")
 RESULT_COLUMNS = (
@@ -317,10 +327,77 @@ def run(
     return pl.DataFrame(rows, schema_overrides={"auroc": pl.Float64}).select(RESULT_COLUMNS)
 
 
+def first_window(
+    first: pl.DataFrame,
+    assignment: pl.DataFrame,
+    vocabulary: list[str],
+    cfg: BaselineConfig,
+) -> pl.DataFrame:
+    """Run the three experiments on the first-window store under prefixed experiment names.
+
+    ``first`` must describe at most the first twenty calls of each
+    binary. The check exists because the whole-trace store has the same
+    schema, and passing it here by mistake would produce a second copy of
+    the whole-trace results under the first-window name.
+    """
+    if (first["windows"] > WINDOW).any():
+        raise ValueError(f"first-window store has binaries with more than {WINDOW} calls")
+    results = run(first, assignment, vocabulary, cfg)
+    return results.with_columns(
+        (pl.lit(f"{FIRST_WINDOW} ") + pl.col("experiment")).alias("experiment")
+    )
+
+
+def compare(results: pl.DataFrame) -> pl.DataFrame:
+    """Whole-trace against first-window, one row per experiment, held-out architecture and view.
+
+    Both runs must score the same binaries, since only the features
+    differ; a fold whose test count differs between them raises.
+    """
+    keys = ["experiment", "held_out", "view"]
+    scores = ["accuracy", "mcc", "auroc"]
+    whole = results.filter(pl.col("experiment").is_in(list(EXPERIMENTS)))
+    first = results.filter(pl.col("experiment").str.starts_with(f"{FIRST_WINDOW} ")).with_columns(
+        pl.col("experiment").str.strip_prefix(f"{FIRST_WINDOW} ")
+    )
+    joined = whole.select(*keys, "test_n", *scores).join(
+        first.select(*keys, "test_n", *scores), on=keys, how="inner", suffix="_first"
+    )
+    mismatched = joined.filter(pl.col("test_n") != pl.col("test_n_first"))
+    if not mismatched.is_empty():
+        raise ValueError(f"{mismatched.height} folds score different binaries in the two runs")
+    return joined.select(
+        *keys,
+        "test_n",
+        *[c for m in scores for c in (pl.col(m).alias(f"{m}_whole"), pl.col(f"{m}_first"))],
+    )
+
+
+def _fmt(x: float | None) -> str:
+    """Three decimals, or blank for a metric that was not computed."""
+    return "" if x is None else f"{x:.3f}"
+
+
+def render_comparison(table: pl.DataFrame) -> str:
+    """Render the comparison as one markdown table."""
+    out = [
+        "| Experiment | Held out | View | Test | Accuracy whole | Accuracy first "
+        "| MCC whole | MCC first | AUROC whole | AUROC first |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for r in table.iter_rows(named=True):
+        cells = [r["experiment"], r["held_out"], r["view"], str(r["test_n"])]
+        cells += [
+            _fmt(r[f"{m}_{s}"]) for m in ("accuracy", "mcc", "auroc") for s in ("whole", "first")
+        ]
+        out.append("| " + " | ".join(cells) + " |")
+    return "\n".join(out) + "\n"
+
+
 def render_markdown(results: pl.DataFrame) -> str:
-    """One table per experiment."""
+    """One table per experiment; the first-window repeats follow the three originals."""
     out = []
-    for experiment in (IN_ARCH, LOAO, SANITY):
+    for experiment in [*EXPERIMENTS, *(f"{FIRST_WINDOW} {e}" for e in EXPERIMENTS)]:
         part = results.filter(pl.col("experiment") == experiment)
         if part.is_empty():
             continue
