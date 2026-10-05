@@ -61,6 +61,13 @@ assignment is in `configs/split.yaml` and `data/splits/`, and
 `tests/test_split.py` asserts that no group and no hash crosses a
 split within an architecture.
 
+**Revision (2026-10-05).** A group whose binaries carry two malware
+families is dealt once, under the family that holds most of its
+binaries. The deal is stratified by family, and the 190 Mirai and one
+Generic binary that share one x86 trace were dealt separately, once in
+each family; they agreed by chance until the inert correction in D8
+shifted the random draws, after which the check refused the split.
+
 ## D3: STRACE and PCAP are in scope; SAR is not
 
 The features come from the syscall-window tables and the network-window
@@ -187,10 +194,10 @@ from every metric, and counted per class and architecture in
 
 **Why.** On ARM, 1,830 of 1,980 benign binaries, 1,212 of 2,795 Mirai
 binaries and 50 of 91 DarkNexus binaries are inert under this rule,
-against 2 to 7 percent of any class on the other three architectures
-(`data/SPLIT.md`). The two largest identical groups show what the inert
+against at most 7 percent of any class on the other three
+architectures (`data/SPLIT.md`). The two largest identical groups show what the inert
 traces are. 1,687 of the benign binaries produced one identical trace
-of about 35 calls: a dynamic loader mapping shared libraries,
+of 16 calls: a dynamic loader mapping shared libraries,
 one `writev` (an error message), and `exit_group`. 560 of 2,795 ARM
 Mirai binaries produced another: `execve`, `getpid`, `writev`,
 `exit_group`, a statically linked bot that printed and quit. Neither
@@ -212,6 +219,15 @@ experiment list measures this.
 **Revisit if** a repaired ARM run of the dataset is released, or if
 the first-window baseline shows the threshold of 64 calls cuts into
 binaries that did run.
+
+**Revision (2026-10-05).** The rule is unchanged; its arithmetic was
+wrong. A binary with `w` STRACE rows made `w` calls, not `w + 19`
+(`docs/dataset_notes.md`, "Rows grow, then slide"), so the code
+treated a trace of 45 to 63 calls as 64 or more and kept it live.
+Applied as written, the rule sets aside 25 more benign binaries: MIPS
+goes from 8 to 16 inert, MIPSEL from 6 to 15, x86 from 8 to 16. ARM and
+every malware class are unchanged. The splits and the baseline were
+regenerated in `fix/trace-length`.
 ## D9: One evaluation protocol for every model, with the whole held-out architecture as the test set
 
 Every model, from the XGBoost reference in `iotmal.baseline` to the

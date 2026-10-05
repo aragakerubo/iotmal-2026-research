@@ -13,9 +13,10 @@ Before assignment, inert binaries are set aside. A trace of fewer than
 reached its own logic, and on ARM that describes most of the benign
 class (D8). They are reported, never trained on or scored.
 
-Window arithmetic: each STRACE row counts the previous twenty calls and
-there is one row per call from the twentieth onward, so a binary with
-``w`` windows has a trace of ``w + 19`` calls.
+Window arithmetic: there is one STRACE row per system call. Row ``i``
+of a binary counts its first ``i`` calls while ``i`` is at most twenty,
+and the twenty calls ending at call ``i`` after that, so a binary with
+``w`` rows (the store's ``windows`` column) has a trace of ``w`` calls.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from iotmal.paths import CONFIG_DIR
 
 HASH, LABEL, ARCH = SHARED
 WINDOW = 20
+"""Calls per full window; rows before the twentieth count a shorter prefix."""
 SPLITS = ("train", "val", "test")
 INERT = "inert"
 CONFLICT = "conflict"
@@ -70,8 +72,12 @@ class SplitConfig:
 
 
 def trace_length(windows: pl.Expr) -> pl.Expr:
-    """Return the number of system calls in a trace with ``windows`` sliding windows."""
-    return windows + (WINDOW - 1)
+    """Return the number of system calls in a trace with ``windows`` rows.
+
+    One row per call, so the two are equal. The function stays so that
+    every caller states which of the two quantities it means.
+    """
+    return windows
 
 
 def mark_inert(signed: pl.DataFrame, cfg: SplitConfig) -> pl.DataFrame:
@@ -92,7 +98,10 @@ def assign(signed: pl.DataFrame, cfg: SplitConfig) -> pl.DataFrame:
     benign and malicious binaries within an architecture get split
     ``conflict``, since identical behaviour with opposite labels can be
     neither trained on nor scored; the rest are dealt out per architecture and
-    family in whole groups. Groups are scoped to an architecture, so the
+    family in whole groups. A group whose binaries carry more than one
+    malware family is dealt once, under the family that holds most of
+    them, so it cannot be dealt twice and land on two sides. Groups are
+    scoped to an architecture, so the
     same signature on two architectures is two groups, which is what
     leave-one-architecture-out needs.
     """
@@ -115,9 +124,21 @@ def assign(signed: pl.DataFrame, cfg: SplitConfig) -> pl.DataFrame:
     conflicted = set(sides_per_group.filter(pl.col("n_sides") > 1)["group"].to_list())
     frame = frame.with_columns(pl.col("group").is_in(list(conflicted)).alias(CONFLICT))
 
+    # One family per group for dealing: the most common label in the group,
+    # ties to the alphabetically first. On x86 one trace is shared by 190 Mirai
+    # binaries and one Generic; dealt per label, the two copies drew separately.
+    dealer = (
+        frame.group_by("group", LABEL)
+        .len()
+        .sort(["group", "len", LABEL], descending=[False, True, False])
+        .group_by("group", maintain_order=True)
+        .agg(pl.col(LABEL).first().alias("deal_as"))
+    )
+    frame = frame.join(dealer, on="group", how="left", maintain_order="left")
+
     rng = np.random.default_rng(cfg.seed)
     pieces = []
-    for (arch, label), part in frame.group_by(ARCH, LABEL, maintain_order=True):
+    for (arch, label), part in frame.group_by(ARCH, "deal_as", maintain_order=True):
         live = part.filter(~pl.col(INERT) & ~pl.col(CONFLICT))
         dead = part.filter(pl.col(INERT)).with_columns(pl.lit(INERT).alias("split"))
         clash = part.filter(~pl.col(INERT) & pl.col(CONFLICT)).with_columns(

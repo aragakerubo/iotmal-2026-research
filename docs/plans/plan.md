@@ -1,6 +1,6 @@
 # Cross-Architecture IoT Malware Detection Plan
 
-Started 2026-09-20. Last updated 2026-10-05, after step 9 (`feat/baseline`). This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
+Started 2026-09-20. Last updated 2026-10-05, after `fix/trace-length`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
 
 ## Research question
 
@@ -65,13 +65,13 @@ The split is placed after canonicalisation but before any statistic is fitted, s
 | Fill check | Samples the `double` count columns for non-integer values, which would be the fingerprint of the authors' mean-fill applied before release | No non-integer values anywhere, so D5 needs no code | Done |
 | Canonicalize | Folds 181 raw syscall names onto 132 canonical ones by an alias table and a unique-prefix rule for truncated names; zero where a call never occurs | Every architecture yields the same 132 columns; the per-column outcome is in `data/syscall_resolution.csv` | Done |
 | Near-duplicate scan | Sums each binary's canonical counts into one vector and counts distinct vectors per class under three signatures of decreasing strictness; the per-binary table it writes is the feature store the baselines train on | `data/DEDUP.md`: 1,687 ARM benign binaries share one trace, 190 x86 Mirai share another | Done |
-| Split | Sets aside inert binaries (fewer than 64 calls, no network call; D8), then assigns every behaviour group, meaning all binaries of one architecture with one exact syscall vector, to train, validation or test (70/10/20) per architecture and family; a group that holds both benign and malicious binaries is a conflict and is scored by nobody | `data/SPLIT.md` and `data/splits/`: zero overlap of groups and hashes within an architecture, asserted by a test; no conflict remains after inert removal | Done |
-| Baselines | One XGBoost model on the per-binary feature store under three experiments: in-architecture on the split columns, leave-one-architecture-out on the whole held-out architecture, and an architecture-sanity classifier that predicts the architecture from the same features (D9) | `data/BASELINE.md`: metrics per fold in a per-binary view and a per-group view, with the test set's majority share printed as chance | Code done, run pending |
+| Split | Sets aside inert binaries (fewer than 64 calls, no network call; D8), then assigns every behaviour group, meaning all binaries of one architecture with one exact syscall vector, to train, validation or test (70/10/20) per architecture and family, a group that spans two malware families being dealt once under the larger; a group that holds both benign and malicious binaries is a conflict and is scored by nobody | `data/SPLIT.md` and `data/splits/`: zero overlap of groups and hashes within an architecture, asserted by a test; no conflict remains after inert removal | Done |
+| Baselines | One XGBoost model on the per-binary feature store under three experiments: in-architecture on the split columns, leave-one-architecture-out on the whole held-out architecture, and an architecture-sanity classifier that predicts the architecture from the same features (D9) | `data/BASELINE.md`: metrics per fold in a per-binary view and a per-group view, with the test set's majority share printed as chance | Done |
 | First window | Keeps the first STRACE row of every binary in a second scan and trains on it alone, to measure whether the loader prologue already names the class (the linkage shortcut D8 raised) | Baseline metrics on first-window features against whole-trace features | Next |
 | Feature store | Writes canonicalised, split-labelled window tables to S3, one file per architecture and split, as a Processing job | Row counts per split reconcile with the verification report | Week 3 |
 | Prune PCAP | Keeps the 39 flow statistics, which carry no address, port or hostname, and runs the model with and without `DNS` and `Time_To_Live` as the H2 ablation | Accuracy with and without the two columns, in and across architectures | Week 4 |
 
-One fact about the STRACE tables shapes the model design. Each row is the count of each system call over the most recent twenty calls, so a row is already an aggregate rather than a raw call, and there is no timestamp or window index in the file; row order within a binary is the only carrier of sequence. Because the verification showed that order is preserved, consecutive rows of one binary can be treated as a sequence and fed to a one-dimensional convolutional network, which slides a small filter along the sequence to detect patterns in how call counts change over time. Had the order been scrambled, only bag-of-window models, which treat each row independently, would have been possible.
+One fact about the STRACE tables shapes the model design. There is one row per system call, and each row counts every system call over the most recent twenty calls (over the calls so far, for a binary's first nineteen rows), so a row is already an aggregate rather than a raw call and a binary with `w` rows made `w` calls, and there is no timestamp or window index in the file; row order within a binary is the only carrier of sequence. Because the verification showed that order is preserved, consecutive rows of one binary can be treated as a sequence and fed to a one-dimensional convolutional network, which slides a small filter along the sequence to detect patterns in how call counts change over time. Had the order been scrambled, only bag-of-window models, which treat each row independently, would have been possible.
 
 ## Models
 
@@ -101,7 +101,7 @@ The experiments run in a fixed order, because each one validates something the n
 
 | Order | Experiment | What it establishes |
 | --- | --- | --- |
-| 0 | Reference baselines (done in code, run pending): XGBoost in-architecture, leave-one-architecture-out and architecture-sanity on the per-binary feature store | The bar every network has to clear; how much architecture signal the canonical vocabulary leaves behind |
+| 0 | Reference baselines (done): XGBoost in-architecture, leave-one-architecture-out and architecture-sanity on the per-binary feature store | The bar every network has to clear; how much architecture signal the canonical vocabulary leaves behind |
 | 0b | First-window check: the same baselines trained on the first STRACE row of each binary only | Whether the dynamic-loader prologue separates generated benign programs from statically linked malware before any behaviour is seen |
 | 1 | Leakage check (H3): XGBoost under a row-level random split against a split that keeps behaviour groups whole, per architecture | The size of the gap |
 | 2 | Baseline transfer: XGBoost leave-one-architecture-out on raw columns against canonical columns (H1) | Whether reconciling names helps, and by how much |
@@ -142,7 +142,7 @@ Twelve weeks from 2026-09-22 to a submission-ready draft by 2026-12-14. Revised 
 | --- | --- | --- | --- |
 | 1 | Sep 22 to 28 | Done: scaffold, manifest, verification, fill check, canonical vocabulary, near-duplicate scan | Data understood; D1 to D7 written |
 | 2 | Sep 29 to Oct 5 | Done: `feat/split` by behaviour group with inert binaries set aside, `fix/split-conflict`, `feat/baseline` with the three experiments and the sanity classifier, `docs/plans` (this file moved into the repository). Carried: week-1 closeout docs (device budget, venue, syscall groups, leakage spec) | Split files committed; D8 and D9 written; baseline code merged |
-| 3 | Oct 6 to 12 | Run the baselines and commit `data/BASELINE.md`; `feat/first-window`; week-1 closeout docs; leakage experiment (H3): row-level versus grouped splits, XGBoost, per architecture; first Processing job writes the window-level feature store | Corrected baseline table; sanity score known |
+| 3 | Oct 6 to 12 | Run the baselines and commit `data/BASELINE.md`; `fix/trace-length`; `feat/first-window`; week-1 closeout docs; leakage experiment (H3): row-level versus grouped splits, XGBoost, per architecture; first Processing job writes the window-level feature store | Corrected baseline table; sanity score known |
 | 4 | Oct 13 to 19 | XGBoost leave-one-architecture-out on raw versus canonical columns (H1); PCAP `DNS` and `TTL` ablations (H2); binary-level and window-level metrics side by side | Baseline transfer table complete |
 | 5 | Oct 20 to 26 | Training harness (SageMaker managed spot, sweep per job, checkpoints); MLP-small and MLP-groups | First NN transfer numbers |
 | 6 | Oct 27 to Nov 2 | 1D-CNN over consecutive windows; late fusion of STRACE and PCAP | All four folds for every model |
@@ -183,6 +183,7 @@ Sources: [CIC-YNU-IoTMal dataset page](https://www.unb.ca/cic/datasets/ynu-iot-2
 
 | Date | Change |
 | --- | --- |
+| 2026-10-05 | `fix/trace-length`: one STRACE row per call, so a binary with `w` rows made `w` calls rather than `w + 19`; the inert rule applied as written sets aside 25 more benign binaries on MIPS, MIPSEL and x86 (D8 revised); a group spanning two malware families is dealt once (D2 revised); splits and baseline regenerated, Baselines status Done |
 | 2026-10-05 | Plan moved into the repository as `docs/plans/plan.md`; pipeline, evaluation protocol, timeline and risks updated for steps 7 to 9 (behaviour-grouped split, inert exclusion, conflict rule, XGBoost baselines, D8 and D9); first-window experiment added; open-decisions checklist folded into Scope |
 | 2026-09-28 | Researcher A and B tracks dropped; timeline by step |
 | 2026-09-26 | Data findings table, D5 to D7, evaluation unit set to the binary, three risks added |

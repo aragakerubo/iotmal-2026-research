@@ -78,7 +78,7 @@ def test_profile_features_are_proportions_plus_log_length(live):
     x = baseline.featurize(live, VOCAB, "profile")
     assert x.shape == (live.height, len(VOCAB) + 1)
     assert np.allclose(x[:, : len(VOCAB)].sum(axis=1), 1.0)
-    assert np.allclose(x[:, -1], np.log1p(live["windows"].to_numpy() + 19))
+    assert np.allclose(x[:, -1], np.log1p(live["windows"].to_numpy()))
     y = baseline.featurize(live, VOCAB, "log_counts")
     assert y.shape == (live.height, len(VOCAB))
 
