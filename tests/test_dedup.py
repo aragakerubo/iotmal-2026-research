@@ -130,3 +130,24 @@ def test_render_markdown_has_one_row_per_class_and_per_signature():
     assert "| arm | Benign | 1 | 1 | 1 | 1 | 1 |" in md
     assert "| arm | Mirai | 1 | 1 | 1 | 1 | 1 |" in md
     assert md.count("| arm | exact |") == 1 and "| arm | presence | 0 |" in md
+
+
+def test_cross_class_report_can_count_by_benign_or_malware():
+    binaries = pl.DataFrame(
+        {
+            "Hash": list("abcd"),
+            "MalwareFamily": ["Mirai", "Generic", "Benign", "Mirai"],
+            "Arch": ["x86"] * 4,
+            "windows": [1] * 4,
+            "is_malware": [True, True, False, True],
+            "mmap": [1, 1, 2, 2],
+            "read": [0, 0, 0, 0],
+            "write": [0, 0, 0, 0],
+        }
+    )
+    signed = dedup.add_signatures(binaries, VOCAB)
+    exact = pl.col("signature") == "exact"
+    by_family = dedup.cross_class_report(signed).filter(exact)
+    by_target = dedup.cross_class_report(signed, by="is_malware").filter(exact)
+    assert by_family["shared_across_classes"].to_list() == [2]  # Mirai/Generic and Benign/Mirai
+    assert by_target["shared_across_classes"].to_list() == [1]  # only Benign/Mirai

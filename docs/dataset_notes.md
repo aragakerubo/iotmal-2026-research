@@ -114,6 +114,20 @@ the benign class is almost entirely distinct (2,617 of 2,617 on MIPS)
 and the largest identical Mirai group is 190 (x86). D8 excludes inert
 binaries and records the counts.
 
+### The first twenty calls
+
+`data/binaries/<arch>_first_strace.parquet` holds each binary's
+twentieth row, which counts its first twenty calls, or its last row
+when it made fewer; 291 live binaries did, all malware. On every
+architecture no first window is shared by a benign and a malware binary
+(`data/FIRST_WINDOW.md`). Live benign binaries have between 15 (x86)
+and 136 (MIPS, MIPSEL) distinct first windows, the commonest on x86
+covering 1,030 binaries: `execve`, two `open` calls for the shared
+libraries, `mmap`, `mprotect`, `brk`, `stat`, `fcntl`, `ioctl`, `read`
+and the thread-setup calls. The commonest x86 Mirai first windows, 297
+and 191 binaries, contain no `open` and already include `socket`,
+`connect` and `getsockname`.
+
 ### Binaries, not rows
 
 Rows per binary are extremely skewed in STRACE: on ARM the median

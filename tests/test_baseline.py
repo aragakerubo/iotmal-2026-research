@@ -163,3 +163,61 @@ def test_load_assignment_concatenates_split_files(tmp_path, assignment):
     assert out.height == assignment.height
     with pytest.raises(FileNotFoundError):
         baseline.load_assignment(tmp_path / "none")
+
+
+def test_load_feature_store_reads_only_the_named_store(tmp_path, store):
+    arm = pl.col("Arch") == "arm"
+    first = store.with_columns(pl.lit(20, dtype=store["windows"].dtype).alias("windows"))
+    store.filter(arm).write_parquet(tmp_path / "arm_strace.parquet")
+    first.filter(arm).write_parquet(tmp_path / "arm_first_strace.parquet")
+    assert dedup.load_feature_store(tmp_path).equals(store.filter(arm))
+    assert dedup.load_feature_store(tmp_path, stem="first_strace").equals(first.filter(arm))
+    with pytest.raises(FileNotFoundError):
+        dedup.load_feature_store(tmp_path, stem="pcap")
+
+
+def _first_store(store, same=False):
+    """Twenty calls per binary; ``same`` gives every binary the identical first window."""
+    first = store.with_columns(pl.lit(20, dtype=store["windows"].dtype).alias("windows"))
+    if same:
+        first = first.with_columns(*[pl.lit(3).alias(v) for v in VOCAB])
+    return first
+
+
+def test_first_window_rejects_a_store_describing_more_than_twenty_calls(store, assignment, cfg):
+    with pytest.raises(ValueError):
+        baseline.first_window(store, assignment, VOCAB, cfg)
+    too_long = _first_store(store).with_columns(
+        pl.lit(21).cast(store["windows"].dtype).alias("windows")
+    )
+    with pytest.raises(ValueError):
+        baseline.first_window(too_long, assignment, VOCAB, cfg)
+
+
+def test_first_window_repeats_the_three_experiments_on_the_same_binaries(store, assignment, cfg):
+    whole = baseline.run(store, assignment, VOCAB, cfg)
+    first = baseline.first_window(_first_store(store), assignment, VOCAB, cfg)
+    assert first["experiment"].unique().sort().to_list() == sorted(
+        f"first-window {e}" for e in baseline.EXPERIMENTS
+    )
+    assert first["test_n"].to_list() == whole["test_n"].to_list()
+    table = baseline.compare(pl.concat([whole, first]))
+    assert table.height == whole.height
+    md = baseline.render_markdown(pl.concat([whole, first]))
+    assert "## first-window leave-one-architecture-out" in md
+    assert "| leave-one-architecture-out | arm | group |" in baseline.render_comparison(table)
+
+
+def test_identical_first_windows_carry_no_signal(store, assignment, cfg):
+    first = baseline.first_window(_first_store(store, same=True), assignment, VOCAB, cfg)
+    detection = first.filter(~pl.col("experiment").str.ends_with(baseline.SANITY))
+    assert detection["mcc"].abs().max() == 0.0
+    assert detection["auroc"].max() == 0.5
+
+
+def test_compare_raises_when_the_two_runs_score_different_binaries(store, assignment, cfg):
+    whole = baseline.run(store, assignment, VOCAB, cfg)
+    first = baseline.first_window(_first_store(store), assignment, VOCAB, cfg)
+    shifted = first.with_columns(pl.col("test_n") + 1)
+    with pytest.raises(ValueError):
+        baseline.compare(pl.concat([whole, shifted]))

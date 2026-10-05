@@ -34,6 +34,7 @@ from pyarrow import fs as pafs
 
 from iotmal import canonical
 from iotmal.canonical import SHARED
+from iotmal.manifest import ARCHITECTURES
 from iotmal.paths import DATA_DIR
 
 HASH, LABEL, ARCH = SHARED
@@ -80,24 +81,31 @@ def aggregate_binaries(
     )
 
 
-def load_feature_store(source: str | Path | None = None) -> pl.DataFrame:
+def load_feature_store(source: str | Path | None = None, stem: str = "strace") -> pl.DataFrame:
     """Concatenate the per-architecture feature-store files from a directory or S3 prefix.
 
     ``None`` reads ``data/binaries/``; a local path or an ``s3://`` prefix
-    reads every ``*_strace.parquet`` under it, in path order.
+    reads every ``<arch>_<stem>.parquet`` under it, in path order, for
+    the four architectures. The name must match exactly: the whole-trace
+    store (``strace``) and the first-window store (``first_strace``) sit
+    in one directory, and a suffix glob would read both as one.
     """
+    names = {f"{arch}_{stem}.parquet" for arch in ARCHITECTURES}
     if source is None or not str(source).startswith("s3://"):
-        files = sorted(Path(source or DATA_DIR / "binaries").glob("*_strace.parquet"))
+        where = Path(source or DATA_DIR / "binaries")
+        files = sorted(f for f in where.glob("*.parquet") if f.name in names)
         if not files:
-            raise FileNotFoundError(f"no *_strace.parquet under {source or DATA_DIR / 'binaries'}")
+            raise FileNotFoundError(f"no <arch>_{stem}.parquet under {where}")
         return pl.concat([pl.read_parquet(f) for f in files])
     filesystem, root = pafs.FileSystem.from_uri(str(source))
     infos = filesystem.get_file_info(pafs.FileSelector(root))
     frames = []
     for info in sorted(infos, key=lambda i: i.path):
-        if info.path.endswith("_strace.parquet"):
+        if info.base_name in names:
             with filesystem.open_input_file(info.path) as handle:
                 frames.append(pl.read_parquet(handle))
+    if not frames:
+        raise FileNotFoundError(f"no <arch>_{stem}.parquet under {source}")
     return pl.concat(frames)
 
 
@@ -145,18 +153,21 @@ def duplicate_report(signed: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def cross_class_report(signed: pl.DataFrame) -> pl.DataFrame:
+def cross_class_report(signed: pl.DataFrame, by: str = LABEL) -> pl.DataFrame:
     """Per architecture and signature: how many signatures occur in more than one class.
 
     A signature shared by a benign and a malicious binary is a labelling
     conflict no split can fix, and a count of them is part of the
-    dataset's limitations.
+    dataset's limitations. ``by`` names the class column: the family
+    label by default, so two malware families sharing a trace count; a
+    benign-or-malware column counts only the sharing that matters to
+    detection.
     """
     rows = []
     for arch, frame in signed.group_by(ARCH, maintain_order=True):
         arch = arch[0]
         for s in SIGNATURES:
-            classes_per_sig = frame.group_by(s).agg(pl.col(LABEL).n_unique().alias("n"))
+            classes_per_sig = frame.group_by(s).agg(pl.col(by).n_unique().alias("n"))
             shared = classes_per_sig.filter(pl.col("n") > 1).height
             rows.append({ARCH: arch, "signature": s, "shared_across_classes": shared})
     return pl.DataFrame(rows).sort(ARCH, "signature")
