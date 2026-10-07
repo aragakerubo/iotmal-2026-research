@@ -286,3 +286,31 @@ lies between 0.49 and 0.69 on the leave-one-out folds, and ARM's MCC is
 unchanged. A threshold learned without the held-out architecture cannot
 know that its scores are shifted; the ranking transfers across
 architectures and the score scale does not, which the paper reports.
+
+## D10: H3 is measured on sampled single windows, three splits, five seeds
+
+The leakage experiment (H3) scores single STRACE rows, the unit the
+dataset paper classified, and compares three splits of the same rows
+within each architecture: row-random, as the paper split them;
+hash-grouped, which keeps each binary on one side (the original D2);
+and behaviour-grouped, the committed split (D2 revised). Rows are drawn
+per binary up to a cap of 100, uniformly with a seed, in two units:
+`mid`, rows 21 on, which hold no program start-up, and `all`, every
+row. Five seeds vary the sample and the row-random split; a cap of 25
+on the first seed checks that the result does not depend on the cap.
+Each fold is scored per window, per binary and per behaviour group,
+with the model and threshold rule of D9. `configs/leakage.yaml` holds
+the settings and `docs/experiment_h3_leakage.md` the reasoning.
+
+**Why.** On the per-binary feature store the grouped split already
+scores MCC 0.995 to 1.000, so a gap measured there is pinned at zero by
+the ceiling. Single windows are the paper's unit, and mid-trace windows
+remove the start-up shortcut the first-window experiments found. The
+cap keeps the longest Mirai binaries from dominating and makes the
+experiment fit the notebook. Hash-grouped sits between the other two
+so the leak through a binary's own rows and the leak through identical
+binaries are measured separately. Five seeds, because the split's own
+draw-to-draw variation (D2) is about the size of the effect expected.
+
+**Revisit if** the gap depends on the cap, or family classification
+(D7) is run, which the spec defers to week 8.
