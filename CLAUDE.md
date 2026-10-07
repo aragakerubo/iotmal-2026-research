@@ -24,8 +24,12 @@ that sagemaker wants). The per-binary feature store is
 `data/binaries/*_strace.parquet` locally and
 `features/binaries/` in the bucket; it is gitignored. Scans over the
 raw files take ten to twenty minutes and read every row once, so run
-them on purpose, not casually. Python is 3.12 or later. Install with
-`make install-aws` here, `make install` elsewhere.
+them on purpose, not casually. Anything that would run for about an
+hour or more belongs in a SageMaker job with managed spot (D4), which
+writes each finished unit of work (a draw, a fold, a seed) under
+`checkpoints/` in the bucket and skips finished units when restarted.
+Python is 3.12 or later. Install with `make install-aws` here,
+`make install` elsewhere.
 
 ## How a change is made
 
@@ -33,7 +37,10 @@ One step at a time, small enough to review in one sitting. Each step
 is its own branch named `feat/<slug>`, `fix/<slug>`, `chore/<slug>` or
 `docs/<slug>`, carrying exactly one commit. Before committing, run
 `make check` (ruff lint, ruff format check, pytest) and make it green.
-Then push the branch; a human squash-merges it into `main`. Never
+Then ask a researcher before pushing. On a yes, push the branch and open
+a pull request with `gh pr create`, titled with the commit subject.
+Squash-merge it with `gh pr merge --squash --delete-branch` only after a
+second, separate yes; a researcher may also merge it on GitHub. Never
 commit to `main` directly, never force-push, never rewrite a pushed
 branch.
 
