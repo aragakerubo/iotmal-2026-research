@@ -84,6 +84,20 @@ re-dealt every family once more. Leave-one-architecture-out MCC on ARM
 moved from 0.956 to 0.940 on the same test binaries, which puts the
 split's own draw-to-draw variation on ARM at about two MCC points.
 
+**Revision (2026-10-07).** A behaviour group's id is now a 64-bit
+BLAKE2b checksum of the binary's summed count vector, computed with
+Python's standard library (`dedup.stable_hash`). It used polars'
+`hash()`, which polars does not keep stable between versions; when the
+Studio space was reinstalled with polars 2.0 every group id changed, and
+because groups are dealt in id order, about 40 percent of binaries
+changed side with no change to the data. The split was regenerated once
+on the new ids, and rebuilding it under polars 1.44 gives the same
+files. The profile signature is now built from integer hundredths
+rounded half up, for the same reason. The re-deal moved ARM's
+in-architecture MCC from 1.000 to 0.934 and its leave-one-out MCC from
+0.940 to 0.969, which is the size of draw noise on a fold with 30
+benign test binaries.
+
 ## D3: STRACE and PCAP are in scope; SAR is not
 
 The features come from the syscall-window tables and the network-window
