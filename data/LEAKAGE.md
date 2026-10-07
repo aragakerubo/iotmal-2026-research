@@ -1,5 +1,11 @@
 # Leakage (H3)
 
+**Measured on the previous split.** These results were produced before
+`fix/stable-signatures` (2026-10-07) re-dealt the split on stable group
+ids. They stand as the H3 measurement until the planned rerun as a
+managed-spot job, which also raises the round cap and re-deals the
+grouped splits per seed.
+
 Run on 2026-10-05 with units {'mid': 21, 'all': 1}, cap 100 over seeds [0, 1, 2, 3, 4] and cap 25 on seed 0; XGBoost {'n_estimators': 400, 'max_depth': 6, 'learning_rate': 0.1, 'subsample': 0.8, 'colsample_bytree': 0.8, 'min_child_weight': 1, 'tree_method': 'hist'}, early stopping after 30 rounds. See `docs/experiment_h3_leakage.md` and D10.
 
 Reading the tables. Each row of the experiment is one STRACE row, a

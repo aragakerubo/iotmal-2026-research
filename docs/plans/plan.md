@@ -1,6 +1,6 @@
 # Cross-Architecture IoT Malware Detection Plan
 
-Started 2026-09-20. Last updated 2026-10-07, after `chore/pr-workflow`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
+Started 2026-09-20. Last updated 2026-10-07, after `fix/stable-signatures`. This file is the plan of record; the dated change log at the end records what moved and when. Numbered decisions live in `docs/decisions.md`, what the files contain in `docs/dataset_notes.md`, and each week's day-by-day record in `docs/plans/week-N.md`.
 
 ## Research question
 
@@ -185,6 +185,7 @@ Sources: [CIC-YNU-IoTMal dataset page](https://www.unb.ca/cic/datasets/ynu-iot-2
 
 | Date | Change |
 | --- | --- |
+| 2026-10-07 | `fix/stable-signatures`: behaviour-group ids use a BLAKE2b checksum instead of polars' version-dependent `hash()`, which had re-dealt the split under polars 2.0 (D2 revised); split and baseline regenerated, first-window conclusions unchanged; the H3 results in `data/LEAKAGE.md` were measured on the previous split and are rerun with the planned managed-spot job |
 | 2026-10-07 | `chore/pr-workflow`: pushing waits for a researcher's yes, pull requests open with `gh`, and squash-merge with branch deletion waits for a second yes (D1 revised); CLAUDE.md also says hour-long runs go to managed-spot jobs that checkpoint to the bucket (D4) |
 | 2026-10-05 | `feat/leakage`: H3 implemented and run as D10 specifies (sample scan, three splits, five seeds, three views); row-level leakage is under one MCC point on MIPS and x86 at the baseline's capacity; data-findings row added; spec marked decided and its feasibility table marked superseded; leakage spec removed from the open list |
 | 2026-10-05 | `docs/h3-leakage-spec`: `docs/experiment_h3_leakage.md` drafted; the per-binary detection task is at the ceiling, so H3 moves to single mid-trace windows, where a feasibility check found row-random splits 3 to 6 MCC points above grouped ones on MIPS, MIPSEL and x86; six design decisions left open |

@@ -151,3 +151,53 @@ def test_cross_class_report_can_count_by_benign_or_malware():
     by_target = dedup.cross_class_report(signed, by="is_malware").filter(exact)
     assert by_family["shared_across_classes"].to_list() == [2]  # Mirai/Generic and Benign/Mirai
     assert by_target["shared_across_classes"].to_list() == [1]  # only Benign/Mirai
+
+
+def test_stable_hash_is_blake2b_and_does_not_depend_on_polars():
+    import hashlib
+
+    out = pl.DataFrame({"s": ["1,2,3", ""]}).select(dedup.stable_hash(pl.col("s")))["s"]
+    expected = [
+        int.from_bytes(hashlib.blake2b(t.encode(), digest_size=8).digest(), "big")
+        for t in ("1,2,3", "")
+    ]
+    assert out.to_list() == expected and out.dtype == pl.UInt64
+
+
+def test_signatures_of_a_fixed_vector_never_change():
+    # pinned values: if these move, every behaviour group id and so the split moves
+    binaries = pl.DataFrame(
+        {
+            "Hash": ["a"],
+            "MalwareFamily": ["Mirai"],
+            "Arch": ["x86"],
+            "windows": [3],
+            "mmap": [1],
+            "read": [7],
+            "write": [0],
+        }
+    )
+    s = dedup.add_signatures(binaries, VOCAB).row(0, named=True)
+    # blake2b-64 of "1,7,0", "13,88,0" (12.5 and 87.5 hundredths, rounded up) and "110"
+    assert s["exact"] == 17857065375282272222
+    assert s["profile"] == 3057240941457734849
+    assert s["presence"] == 2322434297181580829
+
+
+def test_profile_shares_round_half_up_in_hundredths():
+    binaries = pl.DataFrame(
+        {
+            "Hash": list("abcd"),
+            "MalwareFamily": ["Mirai"] * 4,
+            "Arch": ["x86"] * 4,
+            "windows": [1] * 4,
+            "mmap": [1, 2, 0, 1],
+            "read": [199, 398, 200, 7],
+            "write": [0] * 4,
+        }
+    )
+    p = dedup.add_signatures(binaries, VOCAB)["profile"].to_list()
+    assert p[0] == p[1]  # same proportions, twice the length
+    # 1/200 and 199/200 are 0.5 and 99.5 hundredths; both round up
+    half_up = pl.DataFrame({"s": ["1,100,0"]}).select(dedup.stable_hash(pl.col("s")))["s"][0]
+    assert p[0] == half_up and p[0] != p[2]

@@ -26,6 +26,7 @@ Signatures:
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import polars as pl
@@ -109,29 +110,49 @@ def load_feature_store(source: str | Path | None = None, stem: str = "strace") -
     return pl.concat(frames)
 
 
+def stable_hash(text: pl.Expr) -> pl.Expr:
+    """Return a 64-bit BLAKE2b checksum of each string, the same under every library version.
+
+    Polars documents that its own ``hash()`` may change between versions,
+    and the behaviour-group ids of the split are built from these values,
+    so a polars upgrade would re-deal the split (it did, at polars 2.0).
+    """
+    return text.map_elements(
+        lambda s: int.from_bytes(hashlib.blake2b(s.encode(), digest_size=8).digest(), "big"),
+        return_dtype=pl.UInt64,
+    )
+
+
 def add_signatures(binaries: pl.DataFrame, vocabulary: list[str]) -> pl.DataFrame:
     """Append ``exact``, ``profile`` and ``presence`` signature columns.
 
-    Each signature is a 64-bit hash of a string built from the vector, so
-    equal vectors give equal signatures and the columns stay small.
+    Each signature is a 64-bit checksum (``stable_hash``) of a string built
+    from the vector, so equal vectors give equal signatures and the
+    columns stay small. Every string is built from integers: the profile
+    is each count's share of the total in hundredths, rounded half up by
+    explicit arithmetic, because float formatting and the default
+    rounding mode are not fixed across library versions.
     """
-    counts = [pl.col(v) for v in vocabulary]
-    total = pl.sum_horizontal(counts).cast(pl.Float64)
+    counts = [pl.col(v).cast(pl.Int64) for v in vocabulary]
+    total = pl.sum_horizontal(counts)
     exact = pl.concat_str([c.cast(pl.String) for c in counts], separator=",")
+    scale = 10**PROFILE_DECIMALS
     profile = pl.concat_str(
         [
-            (c.cast(pl.Float64) / pl.when(total > 0).then(total).otherwise(1.0))
-            .round(PROFILE_DECIMALS)
-            .cast(pl.String)
+            # floor((count * scale * 2 + total) / (total * 2)) is count / total * scale,
+            # rounded half up, in integers
+            ((c * scale * 2 + total) // pl.when(total > 0).then(total * 2).otherwise(1)).cast(
+                pl.String
+            )
             for c in counts
         ],
         separator=",",
     )
     presence = pl.concat_str([(c > 0).cast(pl.Int8).cast(pl.String) for c in counts], separator="")
     return binaries.with_columns(
-        exact.hash().alias("exact"),
-        profile.hash().alias("profile"),
-        presence.hash().alias("presence"),
+        stable_hash(exact).alias("exact"),
+        stable_hash(profile).alias("profile"),
+        stable_hash(presence).alias("presence"),
     )
 
 
