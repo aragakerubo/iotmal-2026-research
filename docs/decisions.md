@@ -27,6 +27,13 @@ carrier; the branch is. Everything else stands: one step per branch,
 one commit per branch, `make check` green before push, a write-up per
 step, squash-merge by a human. `CLAUDE.md` holds the working agreement.
 
+**Revision (2026-10-07).** A coding session asks a researcher before it
+pushes a branch. On a yes it pushes and opens the pull request with the
+GitHub CLI (`gh`); it squash-merges and deletes the branch only after a
+second yes, and a researcher may still merge on GitHub instead. Pushing
+publishes the work and merging changes `main`, so each needs a person's
+say-so. The 17 branches merged before this revision were never deleted.
+
 ## D2: Every split is by binary hash, never by row
 
 Train, validation and test sets are disjoint sets of binaries (SHA-256
